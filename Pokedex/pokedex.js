@@ -306,23 +306,14 @@ async function loadStats() {
     if (!users[r.user_login]) users[r.user_login] = {
       name:        r.user_name,
       pokemons:    new Set(),
-      shinys:      0,
-      legendaires: 0,
-      total:       0,
     };
     const u = users[r.user_login];
     u.pokemons.add(r.pokemon_id);
-    if (r.is_shiny)             u.shinys++;
-    if (r.tier === 'legendaire') u.legendaires++;
-    u.total++;
   }
 
   const list = Object.values(users);
 
   renderRanking('rank-completion',  list, u => u.pokemons.size,   v => `${v} / 151`);
-  renderRanking('rank-shiny',       list, u => u.shinys,          v => `${v} ✨`);
-  renderRanking('rank-legendaire',  list, u => u.legendaires,     v => `${v} ★`);
-  renderRanking('rank-total',       list, u => u.total,           v => `${v}`);
 }
 
 function renderRanking(containerId, list, sortFn, formatFn) {
