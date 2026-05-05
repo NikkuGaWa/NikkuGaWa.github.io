@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PokéTwitch — Pokédex</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="pokedex.css">
+</head>
+<body>
+
+  <!-- ─── LOADING ─────────────────────────────── -->
+  <div id="loading" class="show">
+    <div class="pokeball-deco"></div>
+    <div class="loading-text">Chargement...</div>
+  </div>
+
+  <!-- ─── LANDING ─────────────────────────────── -->
+  <div id="page-landing">
+    <div class="landing-logo">Pokédex</div>
+    <div class="landing-sub">Retrouve les pokémons capturés pendant les lives</div>
+    <div class="pokeball-deco"></div>
+    <a id="btn-login" href="#" class="btn-twitch">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/>
+      </svg>
+      Se connecter avec Twitch
+    </a>
+    <div class="landing-stats">
+      <div class="stat-item">
+        <span class="stat-num">151</span>
+        <div class="stat-label">Pokémon à capturer</div>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num" id="stat-trainers">—</span>
+        <div class="stat-label">Dresseurs actifs</div>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num" id="stat-captures">—</span>
+        <div class="stat-label">Captures totales</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── POKÉDEX ──────────────────────────────── -->
+  <div id="page-pokedex">
+
+    <header class="header">
+      <div class="header-inner">
+        <div class="header-logo">PokéTwitch</div>
+
+        <!-- ← Nouveau : nav centrale -->
+        <nav class="header-nav">
+          <button class="nav-btn active" data-page="pokedex">Pokédex</button>
+          <button class="nav-btn"        data-page="stats">Stats</button>
+        </nav>
+
+        <div class="header-user">
+          <img class="header-avatar" id="user-avatar" src="" alt="">
+          <span class="header-username" id="user-name"></span>
+          <button class="btn-logout" id="btn-logout">Déconnexion</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Vue Pokédex -->
+    <div id="view-pokedex">
+      <div class="progress-bar-wrap">
+        <div class="progress-inner">
+          <span class="progress-label">Pokédex</span>
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+          </div>
+          <span class="progress-count" id="progress-count">0 / 151</span>
+        </div>
+      </div>
+
+      <div class="filters">
+        <div class="filters-inner">
+          <button class="filter-btn active"        data-filter="all">Tous</button>
+          <button class="filter-btn"               data-filter="captured">Capturés</button>
+          <button class="filter-btn f-commun"      data-filter="commun">★ Commun</button>
+          <button class="filter-btn f-peucommun"   data-filter="peuCommun">★★ Peu commun</button>
+          <button class="filter-btn f-rare"        data-filter="rare">★★★ Rare</button>
+          <button class="filter-btn f-epique"      data-filter="epique">★★★★ Épique</button>
+          <button class="filter-btn f-legendaire"  data-filter="legendaire">★★★★★ Légendaire</button>
+          <button class="filter-btn f-shiny"       data-filter="shiny">✨ Shiny</button>
+          <input class="filter-search" id="filter-search" type="text" placeholder="Rechercher...">
+        </div>
+      </div>
+
+      <div class="pokedex-grid" id="pokedex-grid"></div>
+    </div>
+
+    <!-- Vue Stats -->
+    <div id="view-stats" style="display:none">
+      <div class="stats-page">
+
+        <div class="ranking-section">
+          <h2 class="ranking-title">🏆 Complétion</h2>
+          <div class="ranking-list" id="rank-completion"></div>
+        </div>
+
+        <div class="ranking-section">
+          <h2 class="ranking-title">✨ Shinys</h2>
+          <div class="ranking-list" id="rank-shiny"></div>
+        </div>
+
+        <div class="ranking-section">
+          <h2 class="ranking-title">★★★★★ Légendaires</h2>
+          <div class="ranking-list" id="rank-legendaire"></div>
+        </div>
+
+        <div class="ranking-section">
+          <h2 class="ranking-title">📦 Total captures</h2>
+          <div class="ranking-list" id="rank-total"></div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ─── MODAL ────────────────────────────────── -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <button class="modal-close" id="modal-close">✕</button>
+      <img class="modal-sprite" id="modal-sprite" src="" alt="">
+      <div class="modal-name"   id="modal-name"></div>
+      <div class="modal-number" id="modal-number"></div>
+      <div class="modal-badges" id="modal-badges"></div>
+      <div id="modal-info"></div>
+    </div>
+  </div>
+
+  <script src="pokedex.js"></script>
+</body>
+</html>
