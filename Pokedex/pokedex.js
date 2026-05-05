@@ -13,6 +13,7 @@ const CONFIG = {
   },
 };
 
+const EXCLUDED_USER_NAMES = ['nikkugawa'];
 /* ════════════════════════════════════════════════
    TIERS
 ════════════════════════════════════════════════ */
@@ -140,13 +141,22 @@ async function fetchCaptures(userLogin) {
 
 async function fetchGlobalStats() {
   try {
-    const res  = await fetch(`${CONFIG.supabase.url}/rest/v1/captures?select=user_login`, {
-      headers: { 'apikey': CONFIG.supabase.key, 'Authorization': `Bearer ${CONFIG.supabase.key}` }
+    const res = await fetch(`${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name`, {
+      headers: {
+        'apikey': CONFIG.supabase.key,
+        'Authorization': `Bearer ${CONFIG.supabase.key}`,
+      }
     });
-    const rows    = res.ok ? await res.json() : [];
-    const trainers = new Set(rows.map(r => r.user_login)).size;
-    document.getElementById('stat-trainers').textContent  = trainers;
-    document.getElementById('stat-captures').textContent = rows.length;
+
+    const rows = res.ok ? await res.json() : [];
+    const filteredRows = rows.filter(r =>
+      !EXCLUDED_USER_NAMES.includes(String(r.user_name || '').toLowerCase())
+    );
+
+    const trainers = new Set(filteredRows.map(r => r.user_login)).size;
+
+    document.getElementById('stat-trainers').textContent = trainers;
+    document.getElementById('stat-captures').textContent = filteredRows.length;
   } catch {}
 }
 
@@ -338,9 +348,10 @@ async function loadStats() {
   );
 
   const rows = res.ok ? await res.json() : [];
+  const filteredRows = rows.filter(r =>!EXCLUDED_USER_NAMES.includes(String(r.user_name || '').toLowerCase()));
   const users = {};
 
-  for (const r of rows) {
+  for (const r of filteredRows) {
     const login = String(r.user_login || '').toLowerCase();
     if (!login) continue;
 
