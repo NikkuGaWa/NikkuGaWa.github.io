@@ -4,7 +4,7 @@
 const CONFIG = {
   twitch: {
     clientId:    'zyuas00puvna3l849h834yc1ssqro1',
-    redirectUri: 'https://nikkugawa.github.io/Pokedex',
+    redirectUri: 'https://nikkugawa.github.io//Pokedex',
     scopes:      'user:read:email',
   },
   supabase: {
