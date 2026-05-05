@@ -436,7 +436,6 @@ function renderPodiumRanking(containerId, list) {
             <span class="rank-pos">#${i + 4}</span>
             ${avatarMarkup(u, 'rank-avatar')}
             <span class="rank-name" title="${safeName}">${safeName}</span>
-            <span class="rank-shiny">✨ ${u.shinyIds.size}</span>
             <span class="rank-value">${u.pokemons.size} / 151</span>
           </div>
         `;
