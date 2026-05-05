@@ -4,7 +4,7 @@
 const CONFIG = {
   twitch: {
     clientId:    'zyuas00puvna3l849h834yc1ssqro1',
-    redirectUri: 'https://nikkugawa.github.io//Pokedex',
+    redirectUri: 'https://nikkugawa.github.io/Pokedex',
     scopes:      'user:read:email',
   },
   supabase: {
@@ -54,6 +54,7 @@ const SPRITE_SHINY = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/s
 ════════════════════════════════════════════════ */
 let state = {
   user:         null,
+  twitchToken:  null,
   captures:     [],
   names:        {},
   activeFilter: 'all',
@@ -89,6 +90,36 @@ async function fetchTwitchUser(token) {
   });
   const data = await res.json();
   return data.data?.[0] || null;
+}
+
+async function fetchTwitchUsersByLogin(logins) {
+  if (!state.twitchToken || !logins.length) return {};
+
+  const uniqueLogins = [...new Set(logins.map(l => String(l || '').toLowerCase()).filter(Boolean))];
+  const result = {};
+
+  for (let i = 0; i < uniqueLogins.length; i += 100) {
+    const params = new URLSearchParams();
+    uniqueLogins.slice(i, i + 100).forEach(login => params.append('login', login));
+
+    try {
+      const res = await fetch(`https://api.twitch.tv/helix/users?${params}`, {
+        headers: {
+          'Client-ID':     CONFIG.twitch.clientId,
+          'Authorization': `Bearer ${state.twitchToken}`,
+        }
+      });
+
+      if (!res.ok) continue;
+      const data = await res.json();
+
+      for (const user of data.data || []) {
+        result[user.login.toLowerCase()] = user.profile_image_url;
+      }
+    } catch {}
+  }
+
+  return result;
 }
 
 /* ════════════════════════════════════════════════
@@ -293,41 +324,127 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 
 // ─── Chargement des classements ───────────────
 async function loadStats() {
-  // Récupérer TOUTES les captures de tout le monde
+  const container = document.getElementById('rank-completion');
+  container.innerHTML = '<div class="stats-loading">Chargement du classement...</div>';
+
   const res = await fetch(
     `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id,tier,is_shiny`,
     { headers: { 'apikey': CONFIG.supabase.key, 'Authorization': `Bearer ${CONFIG.supabase.key}` } }
   );
-  const rows = res.ok ? await res.json() : [];
 
-  // Agréger par user
+  const rows = res.ok ? await res.json() : [];
   const users = {};
+
   for (const r of rows) {
-    if (!users[r.user_login]) users[r.user_login] = {
-      name:        r.user_name,
-      pokemons:    new Set(),
-    };
-    const u = users[r.user_login];
-    u.pokemons.add(r.pokemon_id);
+    const login = String(r.user_login || '').toLowerCase();
+    if (!login) continue;
+
+    if (!users[login]) {
+      users[login] = {
+        login,
+        name: r.user_name || login,
+        pokemons: new Set(),
+        shinyIds: new Set(),
+      };
+    }
+
+    users[login].pokemons.add(r.pokemon_id);
+    if (r.is_shiny) users[login].shinyIds.add(r.pokemon_id);
   }
 
-  const list = Object.values(users);
+  const list = Object.values(users)
+    .sort((a, b) => {
+      const diff = b.pokemons.size - a.pokemons.size;
+      if (diff !== 0) return diff;
+      return b.shinyIds.size - a.shinyIds.size;
+    })
+    .slice(0, 10);
 
-  renderRanking('rank-completion',  list, u => u.pokemons.size,   v => `${v} / 151`);
+  const avatars = await fetchTwitchUsersByLogin(list.map(u => u.login));
+
+  for (const u of list) {
+    u.avatar = avatars[u.login] || '';
+  }
+
+  renderPodiumRanking('rank-completion', list);
 }
 
-function renderRanking(containerId, list, sortFn, formatFn) {
-  const sorted    = [...list].sort((a, b) => sortFn(b) - sortFn(a)).slice(0, 10);
-  const container = document.getElementById(containerId);
-  const medals    = ['gold', 'silver', 'bronze'];
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
 
-  container.innerHTML = sorted.map((u, i) => `
-    <div class="ranking-row">
-      <span class="rank-pos ${medals[i] || ''}">${i + 1}</span>
-      <span class="rank-name">${u.name}</span>
-      <span class="rank-value">${formatFn(sortFn(u))}</span>
+function getInitial(name) {
+  return escapeHtml(String(name || '?').trim().charAt(0).toUpperCase() || '?');
+}
+
+function avatarMarkup(user, className) {
+  const safeName = escapeHtml(user.name);
+  if (user.avatar) {
+    return `<img class="${className}" src="${user.avatar}" alt="${safeName}">`;
+  }
+  return `<div class="${className} avatar-fallback" aria-label="${safeName}">${getInitial(user.name)}</div>`;
+}
+
+function renderPodiumRanking(containerId, list) {
+  const container = document.getElementById(containerId);
+
+  if (!list.length) {
+    container.innerHTML = `
+      <div class="stats-empty">
+        Aucun dresseur classé pour le moment.
+      </div>`;
+    return;
+  }
+
+  const top3 = list.slice(0, 3);
+  const rest = list.slice(3);
+  const podiumOrder = [1, 0, 2];
+
+  container.innerHTML = `
+    <div class="podium">
+      ${podiumOrder.map(index => {
+        const u = top3[index];
+        if (!u) return '';
+
+        const place = index + 1;
+        const safeName = escapeHtml(u.name);
+        const completed = u.pokemons.size;
+        const percent = Math.round((completed / 151) * 100);
+        const crown = place === 1 ? '👑' : place === 2 ? '🥈' : '🥉';
+
+        return `
+          <div class="podium-card podium-${place}">
+            <div class="podium-rank">${crown}</div>
+            ${avatarMarkup(u, 'podium-avatar')}
+            <div class="podium-name" title="${safeName}">${safeName}</div>
+            <div class="podium-score">${completed} / 151</div>
+            <div class="podium-percent">${percent}% complété</div>
+            <div class="podium-shiny">✨ ${u.shinyIds.size} shiny</div>
+          </div>
+        `;
+      }).join('')}
     </div>
-  `).join('');
+
+    <div class="ranking-rest">
+      ${rest.map((u, i) => {
+        const safeName = escapeHtml(u.name);
+        return `
+          <div class="ranking-row">
+            <span class="rank-pos">#${i + 4}</span>
+            ${avatarMarkup(u, 'rank-avatar')}
+            <span class="rank-name" title="${safeName}">${safeName}</span>
+            <span class="rank-shiny">✨ ${u.shinyIds.size}</span>
+            <span class="rank-value">${u.pokemons.size} / 151</span>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 /* ════════════════════════════════════════════════
@@ -345,6 +462,8 @@ async function init() {
     document.getElementById('page-landing').style.display = 'flex';
     return;
   }
+
+  state.twitchToken = token;
 
   history.replaceState(null, '', window.location.pathname);
 
@@ -377,8 +496,9 @@ async function init() {
    EVENTS
 ════════════════════════════════════════════════ */
 document.getElementById('btn-logout').addEventListener('click', () => {
-  state.user     = null;
-  state.captures = [];
+  state.user        = null;
+  state.twitchToken = null;
+  state.captures    = [];
   document.getElementById('page-pokedex').style.display = 'none';
   document.getElementById('page-landing').style.display = 'flex';
 });
