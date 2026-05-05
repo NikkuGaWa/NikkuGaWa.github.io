@@ -328,8 +328,13 @@ async function loadStats() {
   container.innerHTML = '<div class="stats-loading">Chargement du classement...</div>';
 
   const res = await fetch(
-    `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id,tier,is_shiny`,
-    { headers: { 'apikey': CONFIG.supabase.key, 'Authorization': `Bearer ${CONFIG.supabase.key}` } }
+    `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id`,
+    {
+      headers: {
+        'apikey': CONFIG.supabase.key,
+        'Authorization': `Bearer ${CONFIG.supabase.key}`,
+      }
+    }
   );
 
   const rows = res.ok ? await res.json() : [];
@@ -344,20 +349,14 @@ async function loadStats() {
         login,
         name: r.user_name || login,
         pokemons: new Set(),
-        shinyIds: new Set(),
       };
     }
 
     users[login].pokemons.add(r.pokemon_id);
-    if (r.is_shiny) users[login].shinyIds.add(r.pokemon_id);
   }
 
   const list = Object.values(users)
-    .sort((a, b) => {
-      const diff = b.pokemons.size - a.pokemons.size;
-      if (diff !== 0) return diff;
-      return b.shinyIds.size - a.shinyIds.size;
-    })
+    .sort((a, b) => b.pokemons.size - a.pokemons.size)
     .slice(0, 10);
 
   const avatars = await fetchTwitchUsersByLogin(list.map(u => u.login));
@@ -424,7 +423,6 @@ function renderPodiumRanking(containerId, list) {
             <div class="podium-name" title="${safeName}">${safeName}</div>
             <div class="podium-score">${completed} / 151</div>
             <div class="podium-percent">${percent}% complété</div>
-            <div class="podium-shiny">✨ ${u.shinyIds.size} shiny</div>
           </div>
         `;
       }).join('')}
