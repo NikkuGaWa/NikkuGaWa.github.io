@@ -74,7 +74,7 @@ async function loadRanking() {
       user.avatar = await fetchAvatar(user.login);
     }));
 
-    renderRanking(top10);
+    renderRanking(top);
   } catch (err) {
     console.error(err);
     rankingEl.innerHTML = '<div class="error">Classement indisponible</div>';
