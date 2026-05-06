@@ -77,9 +77,14 @@ function getTwitchLoginUrl() {
 }
 
 function getTokenFromHash() {
-  const hash   = window.location.hash.substring(1);
+  const hash = window.location.hash.substring(1);
   const params = new URLSearchParams(hash);
-  return params.get('access_token');
+  const token = params.get('access_token');
+  if (token) {
+    localStorage.setItem('twitch_access_token', token);
+    return token;
+  }
+  return localStorage.getItem('twitch_access_token');
 }
 
 async function fetchTwitchUser(token) {
@@ -504,6 +509,7 @@ async function init() {
    EVENTS
 ════════════════════════════════════════════════ */
 document.getElementById('btn-logout').addEventListener('click', () => {
+  localStorage.removeItem('twitch_access_token');
   state.user        = null;
   state.twitchToken = null;
   state.captures    = [];
