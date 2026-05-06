@@ -66,11 +66,11 @@ async function loadRanking() {
       users[login].pokemons.add(r.pokemon_id);
     }
 
-    const top10 = Object.values(users)
+    const top = Object.values(users)
       .sort((a, b) => b.pokemons.size - a.pokemons.size)
-      .slice(0, 10);
+      .slice(0, 100);
 
-    await Promise.all(top10.map(async user => {
+    await Promise.all(top.map(async user => {
       user.avatar = await fetchAvatar(user.login);
     }));
 
