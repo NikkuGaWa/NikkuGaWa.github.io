@@ -16,26 +16,28 @@
 
 body {
   width: 318px;
-  min-height: 496px;
+  height: 500px;
   background: var(--bg);
   color: var(--text);
   font-family: 'DM Sans', sans-serif;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .panel {
   width: 318px;
-  min-height: 496px;
+  height: 500px;
   padding: 14px;
   background:
     radial-gradient(circle at top, rgba(240,208,80,0.08), transparent 45%),
     var(--bg);
+  display: flex;
+  flex-direction: column;
 }
 
 .panel-header {
   text-align: center;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
 }
 
 .title {
@@ -52,9 +54,20 @@ body {
 }
 
 .ranking {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.ranking::-webkit-scrollbar {
+  display: none;
 }
 
 .mini-podium {
