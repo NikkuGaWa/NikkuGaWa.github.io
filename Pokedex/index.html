@@ -47,9 +47,12 @@
 
     <header class="header">
       <div class="header-inner">
+        <div class="header-logo">PokéTwitch</div>
+
         <nav class="header-nav">
           <button class="nav-btn active" data-page="pokedex">Pokédex</button>
-          <button class="nav-btn"        data-page="stats">Stats</button>
+          <button class="nav-btn" data-page="stats">Stats</button>
+          <button class="nav-btn admin-only" data-page="admin" style="display:none">Admin</button>
         </nav>
 
         <div class="header-user">
@@ -73,14 +76,14 @@
 
       <div class="filters">
         <div class="filters-inner">
-          <button class="filter-btn active"        data-filter="all">Tous</button>
-          <button class="filter-btn"               data-filter="captured">Capturés</button>
-          <button class="filter-btn f-commun"      data-filter="commun">★ Commun</button>
-          <button class="filter-btn f-peucommun"   data-filter="peuCommun">★★ Peu commun</button>
-          <button class="filter-btn f-rare"        data-filter="rare">★★★ Rare</button>
-          <button class="filter-btn f-epique"      data-filter="epique">★★★★ Épique</button>
-          <button class="filter-btn f-legendaire"  data-filter="legendaire">★★★★★ Légendaire</button>
-          <button class="filter-btn f-shiny"       data-filter="shiny">✨ Shiny</button>
+          <button class="filter-btn active" data-filter="all">Tous</button>
+          <button class="filter-btn" data-filter="captured">Capturés</button>
+          <button class="filter-btn f-commun" data-filter="commun">★ Commun</button>
+          <button class="filter-btn f-peucommun" data-filter="peuCommun">★★ Peu commun</button>
+          <button class="filter-btn f-rare" data-filter="rare">★★★ Rare</button>
+          <button class="filter-btn f-epique" data-filter="epique">★★★★ Épique</button>
+          <button class="filter-btn f-legendaire" data-filter="legendaire">★★★★★ Légendaire</button>
+          <button class="filter-btn f-shiny" data-filter="shiny">✨ Shiny</button>
           <input class="filter-search" id="filter-search" type="text" placeholder="Rechercher...">
         </div>
       </div>
@@ -91,12 +94,27 @@
     <!-- Vue Stats -->
     <div id="view-stats" style="display:none">
       <div class="stats-page">
-
         <div class="ranking-section">
           <h2 class="ranking-title">🏆 Complétion</h2>
           <div class="ranking-list" id="rank-completion"></div>
         </div>
+      </div>
+    </div>
 
+    <!-- Vue Admin -->
+    <div id="view-admin" style="display:none">
+      <div class="admin-page">
+        <h2 class="ranking-title">🛠️ Admin — Dresseurs</h2>
+
+        <input
+          class="admin-search"
+          id="admin-search"
+          type="text"
+          placeholder="Rechercher un dresseur..."
+        >
+
+        <div class="admin-current" id="admin-current"></div>
+        <div class="admin-list" id="admin-list"></div>
       </div>
     </div>
 
@@ -107,7 +125,7 @@
     <div class="modal">
       <button class="modal-close" id="modal-close">✕</button>
       <img class="modal-sprite" id="modal-sprite" src="" alt="">
-      <div class="modal-name"   id="modal-name"></div>
+      <div class="modal-name" id="modal-name"></div>
       <div class="modal-number" id="modal-number"></div>
       <div class="modal-badges" id="modal-badges"></div>
       <div id="modal-info"></div>
