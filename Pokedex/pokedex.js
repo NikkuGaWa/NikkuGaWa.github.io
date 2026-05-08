@@ -724,4 +724,36 @@ document.getElementById('admin-search').addEventListener('input', () => {
   renderAdminUsers();
 });
 
+document.getElementById('admin-reset-btn').addEventListener('click', () => {
+  state.adminViewingUser = null;
+  state.captures = state.ownCaptures;
+
+  state.activeFilter = 'all';
+  state.searchQuery = '';
+
+  document.getElementById('filter-search').value = '';
+
+  document.querySelectorAll('.filter-btn').forEach(b =>
+    b.classList.remove('active')
+  );
+
+  document
+    .querySelector('.filter-btn[data-filter="all"]')
+    .classList.add('active');
+
+  document.querySelectorAll('.nav-btn').forEach(b =>
+    b.classList.remove('active')
+  );
+
+  document
+    .querySelector('.nav-btn[data-page="pokedex"]')
+    .classList.add('active');
+
+  document.getElementById('view-admin').style.display = 'none';
+  document.getElementById('view-stats').style.display = 'none';
+  document.getElementById('view-pokedex').style.display = 'block';
+
+  renderGrid();
+});
+
 init();
