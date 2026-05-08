@@ -856,3 +856,27 @@ body::before {
   font-size: 8px;
   color: var(--gold);
 }
+
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-reset-btn {
+  background: rgba(240,208,80,0.08);
+  border: 1px solid var(--gold-dim);
+  color: var(--gold);
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+  white-space: nowrap;
+}
+
+.admin-reset-btn:hover {
+  background: rgba(240,208,80,0.14);
+}
