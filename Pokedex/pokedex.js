@@ -57,9 +57,13 @@ let state = {
   user:         null,
   twitchToken:  null,
   captures:     [],
+  ownCaptures:  [],
   names:        {},
   activeFilter: 'all',
   searchQuery:  '',
+  isAdmin: false,
+  adminUsers: [],
+  adminViewingUser: null,
 };
 
 /* ════════════════════════════════════════════════
@@ -328,12 +332,19 @@ function closeModal() {
 // ─── Navigation entre les vues ────────────────
 document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => {
+    const page = btn.dataset.page;
+
+    if (page === 'admin' && !state.isAdmin) return;
+
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    const page = btn.dataset.page;
+
     document.getElementById('view-pokedex').style.display = page === 'pokedex' ? 'block' : 'none';
     document.getElementById('view-stats').style.display   = page === 'stats'   ? 'block' : 'none';
+    document.getElementById('view-admin').style.display   = page === 'admin'   ? 'block' : 'none';
+
     if (page === 'stats') loadStats();
+    if (page === 'admin') loadAdminUsers();
   });
 });
 
@@ -461,6 +472,155 @@ function renderPodiumRanking(containerId, list) {
 }
 
 /* ════════════════════════════════════════════════
+   ADMIN
+════════════════════════════════════════════════ */
+async function loadAdminUsers() {
+  if (!state.isAdmin) return;
+
+  const listEl = document.getElementById('admin-list');
+  const currentEl = document.getElementById('admin-current');
+
+  listEl.innerHTML = `
+    <div class="stats-loading">
+      Chargement des dresseurs...
+    </div>
+  `;
+
+  const res = await fetch(
+    `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id`,
+    {
+      headers: {
+        'apikey': CONFIG.supabase.key,
+        'Authorization': `Bearer ${CONFIG.supabase.key}`,
+      }
+    }
+  );
+
+  const rows = res.ok ? await res.json() : [];
+
+  const filteredRows = rows.filter(r =>
+    !EXCLUDED_USER_NAMES.includes(
+      String(r.user_name || '').toLowerCase()
+    )
+  );
+
+  const users = {};
+
+  for (const r of filteredRows) {
+    const login = String(r.user_login || '').toLowerCase();
+
+    if (!login) continue;
+
+    if (!users[login]) {
+      users[login] = {
+        login,
+        name: r.user_name || login,
+        pokemons: new Set(),
+      };
+    }
+
+    users[login].pokemons.add(r.pokemon_id);
+  }
+
+  state.adminUsers = Object.values(users)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  currentEl.innerHTML = state.adminViewingUser
+    ? `Pokédex affiché : <strong>${escapeHtml(state.adminViewingUser.name)}</strong>`
+    : `Pokédex affiché : <strong>toi</strong>`;
+
+  renderAdminUsers();
+}
+
+function renderAdminUsers() {
+  const listEl = document.getElementById('admin-list');
+
+  const query = document
+    .getElementById('admin-search')
+    .value
+    .toLowerCase()
+    .trim();
+
+  const filtered = state.adminUsers.filter(u =>
+    u.name.toLowerCase().includes(query) ||
+    u.login.toLowerCase().includes(query)
+  );
+
+  if (!filtered.length) {
+    listEl.innerHTML = `
+      <div class="stats-empty">
+        Aucun dresseur trouvé
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(u => `
+    <button class="admin-user-row" data-login="${escapeHtml(u.login)}">
+      <span class="admin-user-name">
+        ${escapeHtml(u.name)}
+      </span>
+
+      <span class="admin-user-login">
+        @${escapeHtml(u.login)}
+      </span>
+
+      <span class="admin-user-score">
+        ${u.pokemons.size} / 151
+      </span>
+    </button>
+  `).join('');
+
+  document.querySelectorAll('.admin-user-row').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const login = btn.dataset.login;
+
+      const user = state.adminUsers.find(u => u.login === login);
+
+      if (user) {
+        viewUserPokedex(user);
+      }
+    });
+  });
+}
+
+async function viewUserPokedex(user) {
+  if (!state.isAdmin) return;
+
+  const captures = await fetchCaptures(user.login);
+
+  state.adminViewingUser = user;
+  state.captures = captures;
+
+  state.activeFilter = 'all';
+  state.searchQuery = '';
+
+  document.getElementById('filter-search').value = '';
+
+  document.querySelectorAll('.filter-btn').forEach(b =>
+    b.classList.remove('active')
+  );
+
+  document
+    .querySelector('.filter-btn[data-filter="all"]')
+    .classList.add('active');
+
+  document.querySelectorAll('.nav-btn').forEach(b =>
+    b.classList.remove('active')
+  );
+
+  document
+    .querySelector('.nav-btn[data-page="pokedex"]')
+    .classList.add('active');
+
+  document.getElementById('view-admin').style.display = 'none';
+  document.getElementById('view-stats').style.display = 'none';
+  document.getElementById('view-pokedex').style.display = 'block';
+
+  renderGrid();
+}
+
+/* ════════════════════════════════════════════════
    INIT
 ════════════════════════════════════════════════ */
 async function init() {
@@ -470,6 +630,7 @@ async function init() {
   document.getElementById('btn-login').href = getTwitchLoginUrl();
 
   const token = getTokenFromHash();
+
   if (!token) {
     loading.classList.remove('show');
     document.getElementById('page-landing').style.display = 'flex';
@@ -483,23 +644,42 @@ async function init() {
   try {
     const user = await fetchTwitchUser(token);
     if (!user) throw new Error('User not found');
+
     state.user = user;
 
-    document.getElementById('user-avatar').src        = user.profile_image_url;
-    document.getElementById('user-name').textContent  = user.display_name;
+    state.isAdmin = user.login.toLowerCase() === 'nikkugawa';
+
+    document.querySelectorAll('.admin-only').forEach(el => {
+      el.style.display = state.isAdmin ? '' : 'none';
+    });
+
+    document.getElementById('user-avatar').src       = user.profile_image_url;
+    document.getElementById('user-name').textContent = user.display_name;
 
     const [captures] = await Promise.all([
       fetchCaptures(user.login),
       fetchAllNames(),
     ]);
+
     state.captures = captures;
+    state.ownCaptures = captures;
 
     document.getElementById('page-landing').style.display = 'none';
     document.getElementById('page-pokedex').style.display = 'block';
+
     renderGrid();
+
   } catch (e) {
     console.error(e);
+
+    localStorage.removeItem('twitch_access_token');
+
+    state.user = null;
+    state.twitchToken = null;
+
+    document.getElementById('page-pokedex').style.display = 'none';
     document.getElementById('page-landing').style.display = 'flex';
+
   } finally {
     loading.classList.remove('show');
   }
