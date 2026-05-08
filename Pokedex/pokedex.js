@@ -720,4 +720,8 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
 });
 
+document.getElementById('admin-search').addEventListener('input', () => {
+  renderAdminUsers();
+});
+
 init();
