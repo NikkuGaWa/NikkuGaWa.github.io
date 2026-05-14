@@ -45,7 +45,7 @@ for (const [tier, ids] of Object.entries(TIERS_DEF)) {
 
 const TIER_LABELS = { commun:'Commun', peuCommun:'Peu commun', rare:'Rare', epique:'Épique', legendaire:'Légendaire' };
 const TIER_STARS  = { commun:'★', peuCommun:'★★', rare:'★★★', epique:'★★★★', legendaire:'★★★★★' };
-const TIER_COLORS = { commun:'#4caf50', peuCommun:'#2196f3', rare:'#9c27b0', epique:'#e040fb', legendaire:'#f0d050' };
+const TIER_COLORS = { commun:'#ffffff', peuCommun:'#4caf50', rare:'#2196f3', epique:'#e040fb', legendaire:'#f0d050' };
 
 const SPRITE_BASE  = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/';
 const SPRITE_SHINY = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/';
