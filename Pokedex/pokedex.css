@@ -303,9 +303,9 @@ body::before {
 }
 .filter-btn:hover,
 .filter-btn.active                { border-color: var(--gold);       color: var(--gold);       background: rgba(240,208,80,0.06); }
-.filter-btn.f-commun.active      { border-color: var(--commun);     color: var(--commun);     background: rgba(76,175,80,0.08); }
-.filter-btn.f-peucommun.active   { border-color: var(--peucommun);  color: var(--peucommun);  background: rgba(33,150,243,0.08); }
-.filter-btn.f-rare.active        { border-color: var(--rare);       color: var(--rare);       background: rgba(156,39,176,0.08); }
+.filter-btn.f-commun.active      { border-color: var(--commun);     color: var(--commun);     background: rgba(255, 255, 255, 0.08); }
+.filter-btn.f-peucommun.active   { border-color: var(--peucommun);  color: var(--peucommun);  background: rgba(76,175,80,0.08); }
+.filter-btn.f-rare.active        { border-color: var(--rare);       color: var(--rare);       background: rgba(33,150,243,0.08); }
 .filter-btn.f-epique.active      { border-color: var(--epique);     color: var(--epique);     background: rgba(224,64,251,0.08); }
 .filter-btn.f-legendaire.active  { border-color: var(--legendaire); color: var(--legendaire); background: rgba(240,208,80,0.08); }
 .filter-btn.f-shiny.active       { border-color: var(--shiny);      color: var(--shiny);      background: rgba(0,229,255,0.08); }
