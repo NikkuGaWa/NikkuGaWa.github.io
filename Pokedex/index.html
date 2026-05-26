@@ -25,7 +25,7 @@
       Se connecter avec Twitch
     </a>
     <div class="landing-stats">
-      <div class="stat-item"><span class="stat-num">151</span><div class="stat-label">Pokémon à capturer</div></div>
+      <div class="stat-item"><span class="stat-num">251</span><div class="stat-label">Pokémon à capturer</div></div>
       <div class="stat-item"><span class="stat-num" id="stat-trainers">—</span><div class="stat-label">Dresseurs actifs</div></div>
       <div class="stat-item"><span class="stat-num" id="stat-captures">—</span><div class="stat-label">Captures totales</div></div>
     </div>
@@ -54,7 +54,17 @@
       <div class="progress-bar-wrap">
         <div class="progress-inner">
           <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
-          <span class="progress-count" id="progress-count">0 / 151</span>
+          <span class="progress-count" id="progress-count">0 / 251</span>
+          <button class="progress-toggle" id="progress-toggle" type="button" aria-expanded="false" title="Afficher le détail par génération"><span>Détails</span><i></i></button>
+        </div>
+        <div class="generation-progress-panel" id="generation-progress-panel" style="display:none"></div>
+      </div>
+      <div class="generation-filters">
+        <div class="generation-filters-inner">
+          <span class="generation-filter-label">Génération</span>
+          <button class="gen-filter-btn active" data-gen-filter="all">Toutes</button>
+          <button class="gen-filter-btn" data-gen-filter="1">Gen 1</button>
+          <button class="gen-filter-btn" data-gen-filter="2">Gen 2</button>
         </div>
       </div>
       <div class="filters">
