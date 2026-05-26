@@ -1056,3 +1056,68 @@ body::before {
   .generation-title { align-items: center; flex-direction: row; gap: 10px; }
   .generation-grid { gap: 8px; }
 }
+
+
+/* ════════════════════════════════════════════════
+   STATS — ONGLETS GÉNÉRATIONS
+════════════════════════════════════════════════ */
+.stats-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.stats-section-head .ranking-title {
+  margin-bottom: 0;
+}
+
+.stats-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.stats-tab-btn {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.stats-tab-btn:hover {
+  color: var(--text);
+  background: rgba(255,255,255,0.04);
+}
+
+.stats-tab-btn.active {
+  color: var(--gold);
+  background: rgba(240,208,80,0.1);
+}
+
+@media (max-width: 720px) {
+  .stats-section-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .stats-tabs {
+    width: 100%;
+  }
+
+  .stats-tab-btn {
+    flex: 1;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
