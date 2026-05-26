@@ -39,6 +39,24 @@ const TIERS_DEF = {
       144,145,146,150,151,
     ]
 };
+
+/* ── Gen 2 ajoutée dans chaque tier ── */
+TIERS_DEF.commun.push(
+  161,162,163,164,165,166,167,168,170,171,179,187,188,190,191,193,194,204,206,209,210,211,216,217,218,219,220,223,224,228,231,232,234,
+);
+TIERS_DEF.peuCommun.push(
+  169,172,173,174,175,177,178,180,183,184,189,192,195,198,200,202,203,205,207,213,214,215,221,222,226,236,237,238,239,240,241,246,
+);
+TIERS_DEF.rare.push(
+  152,153,155,156,158,159,176,181,182,185,186,196,197,199,208,212,229,230,233,247,
+);
+TIERS_DEF.epique.push(
+  154,157,160,201,225,227,235,242,248,
+);
+TIERS_DEF.legendaire.push(
+  243,244,245,249,250,251,
+);
+
 for (const [tier, ids] of Object.entries(TIERS_DEF)) {
   for (const id of ids) POKEMON_TIERS[id] = tier;
 }
@@ -53,6 +71,31 @@ const SPRITE_SHINY = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/s
 /* ════════════════════════════════════════════════
    ÉTAT
 ════════════════════════════════════════════════ */
+
+const POKEDEX_TOTAL = 251;
+const GENERATIONS = [
+  { id: 1, label: 'Génération 1', shortLabel: 'Gen 1', start: 1, end: 151 },
+  { id: 2, label: 'Génération 2', shortLabel: 'Gen 2', start: 152, end: 251 },
+];
+
+function getGenerationTotal(gen) {
+  return gen.end - gen.start + 1;
+}
+
+function getVisibleGenerations() {
+  if (state.activeGenFilter === 'all') return GENERATIONS;
+  return GENERATIONS.filter(gen => String(gen.id) === String(state.activeGenFilter));
+}
+
+function getCapturedCountForGeneration(gen) {
+  const capturedIds = new Set(
+    state.captures
+      .map(c => c.pokemon_id)
+      .filter(id => id >= gen.start && id <= gen.end)
+  );
+  return capturedIds.size;
+}
+
 let state = {
   user:         null,
   twitchToken:  null,
@@ -60,6 +103,7 @@ let state = {
   ownCaptures:  [],
   names:        {},
   activeFilter: 'all',
+  activeGenFilter: 'all',
   searchQuery:  '',
   isAdmin: false,
   adminUsers: [],
@@ -176,7 +220,7 @@ async function fetchAllNames() {
   const batchSize = 20;
   const promises  = [];
 
-  for (let i = 1; i <= 151; i++) {
+  for (let i = 1; i <= POKEDEX_TOTAL; i++) {
     promises.push(
       fetch(`https://pokeapi.co/api/v2/pokemon-species/${i}/`)
         .then(r => r.json())
@@ -216,56 +260,100 @@ function formatDate(iso) {
 /* ════════════════════════════════════════════════
    RENDU GRILLE
 ════════════════════════════════════════════════ */
+function renderProgressBars() {
+  const capturedIds   = new Set(state.captures.map(c => c.pokemon_id));
+  const capturedCount = capturedIds.size;
+  const globalPercent = Math.round((capturedCount / POKEDEX_TOTAL) * 100);
+
+  document.getElementById('progress-fill').style.width  = `${globalPercent}%`;
+  document.getElementById('progress-count').textContent = `${capturedCount} / ${POKEDEX_TOTAL}`;
+
+  const panel = document.getElementById('generation-progress-panel');
+  if (!panel) return;
+
+  panel.innerHTML = GENERATIONS.map(gen => {
+    const count = getCapturedCountForGeneration(gen);
+    const total = getGenerationTotal(gen);
+    const percent = Math.round((count / total) * 100);
+
+    return `
+      <div class="generation-progress-row">
+        <div class="generation-progress-head">
+          <span>${gen.label}</span>
+          <strong>${count} / ${total}</strong>
+        </div>
+        <div class="generation-progress-track">
+          <div class="generation-progress-fill" style="width:${percent}%"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 function renderGrid() {
   const grid   = document.getElementById('pokedex-grid');
   const capMap = buildCaptureMap();
   const query  = state.searchQuery.toLowerCase();
   const filter = state.activeFilter;
 
-  // Progression
-  const capturedIds   = new Set(state.captures.map(c => c.pokemon_id));
-  const capturedCount = capturedIds.size;
-  document.getElementById('progress-fill').style.width  = `${(capturedCount / 151) * 100}%`;
-  document.getElementById('progress-count').textContent = `${capturedCount} / 151`;
-
+  renderProgressBars();
   grid.innerHTML = '';
 
-  for (let id = 1; id <= 151; id++) {
-    const tier     = POKEMON_TIERS[id];
-    const name     = state.names[id] || `#${id}`;
-    const captures = capMap[id] || [];
-    const captured = captures.length > 0;
-    const hasShiny = captures.some(c => c.is_shiny);
+  let displayedCount = 0;
 
-    // Filtres
-    if (filter === 'captured' && !captured) continue;
-    if (filter === 'shiny'    && !hasShiny) continue;
-    if (['commun','peuCommun','rare','epique','legendaire'].includes(filter) && tier !== filter) continue;
-    if (query && !name.toLowerCase().includes(query) && !String(id).includes(query)) continue;
+  for (const gen of getVisibleGenerations()) {
+    const section = document.createElement('section');
+    section.className = 'generation-section';
 
-    // Sprite shiny si possédé
-    const spriteUrl = hasShiny
-      ? `${SPRITE_SHINY}${id}.png`
-      : `${SPRITE_BASE}${id}.png`;
-
-    const card = document.createElement('div');
-    card.className = `poke-card r-${tier}${captured ? ' captured' : ''}${hasShiny ? ' shiny-card' : ''}`;
-    card.dataset.id = id;
-    card.innerHTML = `
-      <div class="poke-sprite-wrap">
-        <img class="poke-sprite" src="${spriteUrl}" alt="${name}" loading="lazy">
-        ${hasShiny ? '<span class="shiny-badge">✨</span>' : ''}
+    section.innerHTML = `
+      <div class="generation-title">
+        <div class="generation-title-main">
+          <span>${gen.label}</span>
+        </div>
       </div>
-      <div class="poke-number">#${String(id).padStart(3, '0')}</div>
-      <div class="poke-name">${captured ? name : '???'}</div>
-      ${captured ? `<div class="poke-date">${formatDate(captures[0].captured_at)}</div>` : ''}
+      <div class="generation-grid"></div>
     `;
 
-    card.addEventListener('click', () => openModal(id, captures));
-    grid.appendChild(card);
+    const genGrid = section.querySelector('.generation-grid');
+
+    for (let id = gen.start; id <= gen.end; id++) {
+      const tier     = POKEMON_TIERS[id];
+      const name     = state.names[id] || `#${id}`;
+      const captures = capMap[id] || [];
+      const captured = captures.length > 0;
+      const hasShiny = captures.some(c => c.is_shiny);
+
+      if (filter === 'captured' && !captured) continue;
+      if (filter === 'shiny'    && !hasShiny) continue;
+      if (['commun','peuCommun','rare','epique','legendaire'].includes(filter) && tier !== filter) continue;
+      if (query && !name.toLowerCase().includes(query) && !String(id).includes(query)) continue;
+
+      const spriteUrl = hasShiny
+        ? `${SPRITE_SHINY}${id}.png`
+        : `${SPRITE_BASE}${id}.png`;
+
+      const card = document.createElement('div');
+      card.className = `poke-card r-${tier}${captured ? ' captured' : ''}${hasShiny ? ' shiny-card' : ''}`;
+      card.dataset.id = id;
+      card.innerHTML = `
+        <div class="poke-sprite-wrap">
+          <img class="poke-sprite" src="${spriteUrl}" alt="${name}" loading="lazy">
+          ${hasShiny ? '<span class="shiny-badge">✨</span>' : ''}
+        </div>
+        <div class="poke-number">#${String(id).padStart(3, '0')}</div>
+        <div class="poke-name">${captured ? name : '???'}</div>
+        ${captured ? `<div class="poke-date">${formatDate(captures[0].captured_at)}</div>` : ''}
+      `;
+
+      card.addEventListener('click', () => openModal(id, captures));
+      genGrid.appendChild(card);
+      displayedCount++;
+    }
+
+    if (genGrid.children.length) grid.appendChild(section);
   }
 
-  if (grid.children.length === 0) {
+  if (displayedCount === 0) {
     grid.innerHTML = `
       <div style="grid-column:1/-1;text-align:center;color:var(--muted);
                   font-family:'Press Start 2P',monospace;font-size:9px;
@@ -440,7 +528,7 @@ function renderPodiumRanking(containerId, list) {
         const place = index + 1;
         const safeName = escapeHtml(u.name);
         const completed = u.pokemons.size;
-        const percent = Math.round((completed / 151) * 100);
+        const percent = Math.round((completed / POKEDEX_TOTAL) * 100);
         const crown = place === 1 ? '👑' : place === 2 ? '🥈' : '🥉';
 
         return `
@@ -448,7 +536,7 @@ function renderPodiumRanking(containerId, list) {
             <div class="podium-rank">${crown}</div>
             ${avatarMarkup(u, 'podium-avatar')}
             <div class="podium-name" title="${safeName}">${safeName}</div>
-            <div class="podium-score">${completed} / 151</div>
+            <div class="podium-score">${completed} / ${POKEDEX_TOTAL}</div>
             <div class="podium-percent">${percent}% complété</div>
           </div>
         `;
@@ -463,7 +551,7 @@ function renderPodiumRanking(containerId, list) {
             <span class="rank-pos">#${i + 4}</span>
             ${avatarMarkup(u, 'rank-avatar')}
             <span class="rank-name" title="${safeName}">${safeName}</span>
-            <span class="rank-value">${u.pokemons.size} / 151</span>
+            <span class="rank-value">${u.pokemons.size} / ${POKEDEX_TOTAL}</span>
           </div>
         `;
       }).join('')}
@@ -566,7 +654,7 @@ function renderAdminUsers() {
       </span>
 
       <span class="admin-user-score">
-        ${u.pokemons.size} / 151
+        ${u.pokemons.size} / ${POKEDEX_TOTAL}
       </span>
     </button>
   `).join('');
@@ -593,6 +681,7 @@ async function viewUserPokedex(user) {
   state.captures = captures;
 
   state.activeFilter = 'all';
+  state.activeGenFilter = 'all';
   state.searchQuery = '';
 
   document.getElementById('filter-search').value = '';
@@ -603,6 +692,14 @@ async function viewUserPokedex(user) {
 
   document
     .querySelector('.filter-btn[data-filter="all"]')
+    .classList.add('active');
+
+  document.querySelectorAll('.gen-filter-btn').forEach(b =>
+    b.classList.remove('active')
+  );
+
+  document
+    .querySelector('.gen-filter-btn[data-gen-filter="all"]')
     .classList.add('active');
 
   document.querySelectorAll('.nav-btn').forEach(b =>
@@ -706,6 +803,29 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
   });
 });
 
+document.querySelectorAll('.gen-filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.gen-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.activeGenFilter = btn.dataset.genFilter;
+    renderGrid();
+  });
+});
+
+const progressToggle = document.getElementById('progress-toggle');
+if (progressToggle) {
+  progressToggle.addEventListener('click', () => {
+    const panel = document.getElementById('generation-progress-panel');
+    const isOpen = panel.style.display !== 'none';
+
+    panel.style.display = isOpen ? 'none' : 'grid';
+    progressToggle.classList.toggle('open', !isOpen);
+    progressToggle.setAttribute('aria-expanded', String(!isOpen));
+    const label = progressToggle.querySelector('span');
+    if (label) label.textContent = isOpen ? 'Détails' : 'Masquer';
+  });
+}
+
 document.getElementById('filter-search').addEventListener('input', e => {
   state.searchQuery = e.target.value;
   renderGrid();
@@ -729,6 +849,7 @@ document.getElementById('admin-reset-btn').addEventListener('click', () => {
   state.captures = state.ownCaptures;
 
   state.activeFilter = 'all';
+  state.activeGenFilter = 'all';
   state.searchQuery = '';
 
   document.getElementById('filter-search').value = '';
@@ -739,6 +860,14 @@ document.getElementById('admin-reset-btn').addEventListener('click', () => {
 
   document
     .querySelector('.filter-btn[data-filter="all"]')
+    .classList.add('active');
+
+  document.querySelectorAll('.gen-filter-btn').forEach(b =>
+    b.classList.remove('active')
+  );
+
+  document
+    .querySelector('.gen-filter-btn[data-gen-filter="all"]')
     .classList.add('active');
 
   document.querySelectorAll('.nav-btn').forEach(b =>
