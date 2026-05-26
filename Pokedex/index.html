@@ -87,7 +87,14 @@
     <div id="view-stats" style="display:none">
       <div class="stats-page">
         <div class="ranking-section">
-          <h2 class="ranking-title">🏆 Complétion</h2>
+          <div class="ranking-header">
+            <h2 class="ranking-title">🏆 Complétion</h2>
+            <div class="stats-tabs" aria-label="Filtrer le classement par génération">
+              <button class="stats-tab-btn active" data-stats-gen="all">Total</button>
+              <button class="stats-tab-btn" data-stats-gen="1">Gen 1</button>
+              <button class="stats-tab-btn" data-stats-gen="2">Gen 2</button>
+            </div>
+          </div>
           <div class="ranking-list" id="rank-completion"></div>
         </div>
       </div>
