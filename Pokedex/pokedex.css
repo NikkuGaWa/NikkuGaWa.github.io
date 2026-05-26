@@ -10,9 +10,9 @@
   --gold-dim:    rgba(240,208,80,0.5);
   --text:        #e8e8f0;
   --muted:       #555570;
-  --commun:      #ffffff;
-  --peucommun:   #4caf50;
-  --rare:        #2196f3;
+  --commun:      #4caf50;
+  --peucommun:   #2196f3;
+  --rare:        #9c27b0;
   --epique:      #e040fb;
   --legendaire:  #f0d050;
   --shiny:       #00e5ff;
@@ -879,4 +879,180 @@ body::before {
 
 .admin-reset-btn:hover {
   background: rgba(240,208,80,0.14);
+}
+
+
+/* ════════════════════════════════════════════════
+   GÉNÉRATIONS — progression, filtres, sections
+════════════════════════════════════════════════ */
+.progress-inner {
+  position: relative;
+}
+.progress-toggle {
+  width: auto;
+  height: 30px;
+  border-radius: 999px;
+  padding: 0 11px 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(240,208,80,0.22);
+  background: rgba(240,208,80,0.055);
+  color: var(--gold);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.progress-toggle:hover {
+  border-color: rgba(240,208,80,0.45);
+  background: rgba(240,208,80,0.1);
+}
+.progress-toggle i {
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translateY(-1px);
+  transition: transform 0.18s ease;
+}
+.progress-toggle.open i {
+  transform: rotate(225deg) translateY(-1px);
+}
+.generation-progress-panel {
+  max-width: 1400px;
+  margin: 12px auto 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.generation-progress-row {
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012));
+  border: 1px solid rgba(240,208,80,0.12);
+}
+.generation-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+}
+.generation-progress-head span {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: var(--gold);
+  font-weight: 400;
+}
+.generation-progress-head strong {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  font-weight: 400;
+  white-space: nowrap;
+}
+.generation-progress-track {
+  height: 8px;
+  border: 0;
+  background: rgba(255,255,255,0.055);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.generation-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), #ffaa00);
+  border-radius: 999px;
+  transition: width 0.8s cubic-bezier(0.22,1,0.36,1);
+}
+.generation-filters {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 32px;
+}
+.generation-filters-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.generation-filter-label {
+  color: var(--muted);
+  font-size: 12px;
+  margin-right: 4px;
+}
+.gen-filter-btn {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'DM Sans', sans-serif;
+}
+.gen-filter-btn:hover,
+.gen-filter-btn.active {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(240,208,80,0.08);
+}
+.pokedex-grid {
+  display: block;
+}
+.generation-section {
+  margin-bottom: 42px;
+}
+.generation-title {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  margin: 10px 0 14px;
+  padding: 0;
+  border: 0;
+}
+.generation-title::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  order: 2;
+  background: linear-gradient(90deg, rgba(240,208,80,0.30), transparent);
+}
+.generation-title-main {
+  order: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  padding: 7px 10px;
+  border: 1px solid rgba(240,208,80,0.18);
+  border-radius: 999px;
+  background: rgba(240,208,80,0.055);
+}
+.generation-title-main span {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: var(--gold);
+}
+.generation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--card-size) + 24px), 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .progress-inner { gap: 10px; }
+  .progress-toggle span { display: none; }
+  .progress-toggle { width: 30px; padding: 0; justify-content: center; }
+  .generation-progress-panel { grid-template-columns: 1fr; }
+  .generation-filters { padding-left: 16px; padding-right: 16px; }
+  .generation-title { align-items: center; flex-direction: row; gap: 10px; }
+  .generation-grid { gap: 8px; }
 }
