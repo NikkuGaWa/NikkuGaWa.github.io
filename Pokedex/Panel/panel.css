@@ -47,10 +47,34 @@ body {
   line-height: 1.8;
 }
 
-.subtitle {
+.gen-filters {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  justify-content: center;
+}
+
+.gen-filter {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
   color: var(--muted);
-  font-size: 12px;
-  margin-top: 4px;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 8px;
+  font-family: 'Press Start 2P', monospace;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.gen-filter:hover {
+  border-color: rgba(240,208,80,0.4);
+  color: var(--text);
+}
+
+.gen-filter.active {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(240,208,80,0.08);
 }
 
 .ranking {
@@ -61,7 +85,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
-
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -75,7 +98,8 @@ body {
   grid-template-columns: 1fr 1.15fr 1fr;
   align-items: end;
   gap: 6px;
-  margin-bottom: 10px;
+  margin: 8px 0 10px;
+  padding-top: 6px;
 }
 
 .podium-user {
@@ -91,6 +115,7 @@ body {
   min-height: 142px;
   border-color: rgba(240,208,80,0.55);
   background: rgba(240,208,80,0.08);
+  transform: translateY(-4px);
 }
 
 .podium-2,
