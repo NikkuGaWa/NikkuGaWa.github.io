@@ -104,6 +104,7 @@ let state = {
   names:        {},
   activeFilter: 'all',
   activeGenFilter: 'all',
+  activeStatsGen: 'all',
   searchQuery:  '',
   isAdmin: false,
   adminUsers: [],
@@ -437,22 +438,48 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 });
 
 // ─── Chargement des classements ───────────────
-async function loadStats() {
+async function loadStats(forceRefresh = false) {
   const container = document.getElementById('rank-completion');
   container.innerHTML = '<div class="stats-loading">Chargement du classement...</div>';
 
-  const res = await fetch(
-    `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id`,
-    {
-      headers: {
-        'apikey': CONFIG.supabase.key,
-        'Authorization': `Bearer ${CONFIG.supabase.key}`,
+  if (!state.statsRowsCache || forceRefresh) {
+    const res = await fetch(
+      `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id`,
+      {
+        headers: {
+          'apikey': CONFIG.supabase.key,
+          'Authorization': `Bearer ${CONFIG.supabase.key}`,
+        }
       }
-    }
+    );
+
+    state.statsRowsCache = res.ok ? await res.json() : [];
+  }
+
+  renderStatsRanking();
+}
+
+function getStatsGenerationConfig() {
+  if (state.activeStatsGen === '1') {
+    return { label: 'Gen 1', min: 1, max: 151, total: 151 };
+  }
+
+  if (state.activeStatsGen === '2') {
+    return { label: 'Gen 2', min: 152, max: 251, total: 100 };
+  }
+
+  return { label: 'Total', min: 1, max: POKEDEX_TOTAL, total: POKEDEX_TOTAL };
+}
+
+function renderStatsRanking() {
+  const gen = getStatsGenerationConfig();
+  const rows = state.statsRowsCache || [];
+  const filteredRows = rows.filter(r =>
+    !EXCLUDED_USER_NAMES.includes(String(r.user_name || '').toLowerCase()) &&
+    Number(r.pokemon_id) >= gen.min &&
+    Number(r.pokemon_id) <= gen.max
   );
 
-  const rows = res.ok ? await res.json() : [];
-  const filteredRows = rows.filter(r =>!EXCLUDED_USER_NAMES.includes(String(r.user_name || '').toLowerCase()));
   const users = {};
 
   for (const r of filteredRows) {
@@ -467,20 +494,20 @@ async function loadStats() {
       };
     }
 
-    users[login].pokemons.add(r.pokemon_id);
+    users[login].pokemons.add(Number(r.pokemon_id));
   }
 
   const list = Object.values(users)
     .sort((a, b) => b.pokemons.size - a.pokemons.size)
     .slice(0, 10);
 
-  const avatars = await fetchTwitchUsersByLogin(list.map(u => u.login));
+  fetchTwitchUsersByLogin(list.map(u => u.login)).then(avatars => {
+    for (const u of list) {
+      u.avatar = avatars[u.login] || '';
+    }
 
-  for (const u of list) {
-    u.avatar = avatars[u.login] || '';
-  }
-
-  renderPodiumRanking('rank-completion', list);
+    renderPodiumRanking('rank-completion', list, gen.total);
+  });
 }
 
 function escapeHtml(value) {
@@ -504,7 +531,7 @@ function avatarMarkup(user, className) {
   return `<div class="${className} avatar-fallback" aria-label="${safeName}">${getInitial(user.name)}</div>`;
 }
 
-function renderPodiumRanking(containerId, list) {
+function renderPodiumRanking(containerId, list, total = POKEDEX_TOTAL) {
   const container = document.getElementById(containerId);
 
   if (!list.length) {
@@ -528,7 +555,7 @@ function renderPodiumRanking(containerId, list) {
         const place = index + 1;
         const safeName = escapeHtml(u.name);
         const completed = u.pokemons.size;
-        const percent = Math.round((completed / POKEDEX_TOTAL) * 100);
+        const percent = Math.round((completed / total) * 100);
         const crown = place === 1 ? '👑' : place === 2 ? '🥈' : '🥉';
 
         return `
@@ -536,7 +563,7 @@ function renderPodiumRanking(containerId, list) {
             <div class="podium-rank">${crown}</div>
             ${avatarMarkup(u, 'podium-avatar')}
             <div class="podium-name" title="${safeName}">${safeName}</div>
-            <div class="podium-score">${completed} / ${POKEDEX_TOTAL}</div>
+            <div class="podium-score">${completed} / ${total}</div>
             <div class="podium-percent">${percent}% complété</div>
           </div>
         `;
@@ -551,7 +578,7 @@ function renderPodiumRanking(containerId, list) {
             <span class="rank-pos">#${i + 4}</span>
             ${avatarMarkup(u, 'rank-avatar')}
             <span class="rank-name" title="${safeName}">${safeName}</span>
-            <span class="rank-value">${u.pokemons.size} / ${POKEDEX_TOTAL}</span>
+            <span class="rank-value">${u.pokemons.size} / ${total}</span>
           </div>
         `;
       }).join('')}
@@ -883,6 +910,16 @@ document.getElementById('admin-reset-btn').addEventListener('click', () => {
   document.getElementById('view-pokedex').style.display = 'block';
 
   renderGrid();
+});
+
+// ─── Onglets stats par génération ──────────────
+document.querySelectorAll('.stats-tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.stats-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.activeStatsGen = btn.dataset.statsGen;
+    loadStats(true);
+  });
 });
 
 init();
