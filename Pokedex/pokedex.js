@@ -13,7 +13,7 @@ const CONFIG = {
   },
 };
 
-const EXCLUDED_USER_NAMES = ['nikkugawa'];
+const EXCLUDED_USER_NAMES = ['nikkugawa',"nikku_bot_"];
 /* ════════════════════════════════════════════════
    TIERS
 ════════════════════════════════════════════════ */
@@ -35,8 +35,12 @@ const TIERS_DEF = {
       3,6,9,113,132,139,141,149,
     ],
 
+  fabuleux: [
+      151,
+    ],
+
   legendaire: [
-      144,145,146,150,151,
+      144,145,146,150,
     ]
 };
 
@@ -53,17 +57,20 @@ TIERS_DEF.rare.push(
 TIERS_DEF.epique.push(
   154,157,160,201,225,227,235,242,248,
 );
+TIERS_DEF.fabuleux.push(
+  251,
+);
 TIERS_DEF.legendaire.push(
-  243,244,245,249,250,251,
+  243,244,245,249,250,
 );
 
 for (const [tier, ids] of Object.entries(TIERS_DEF)) {
   for (const id of ids) POKEMON_TIERS[id] = tier;
 }
 
-const TIER_LABELS = { commun:'Commun', peuCommun:'Peu commun', rare:'Rare', epique:'Épique', legendaire:'Légendaire' };
-const TIER_STARS  = { commun:'★', peuCommun:'★★', rare:'★★★', epique:'★★★★', legendaire:'★★★★★' };
-const TIER_COLORS = { commun:'#ffffff', peuCommun:'#4caf50', rare:'#2196f3', epique:'#e040fb', legendaire:'#f0d050' };
+const TIER_LABELS = { commun:'Commun', peuCommun:'Peu commun', rare:'Rare', epique:'Épique', fabuleux:'Fabuleux', legendaire:'Légendaire' };
+const TIER_STARS  = { commun:'★', peuCommun:'★★', rare:'★★★', epique:'★★★★', fabuleux:'★★★★★', legendaire:'★★★★★★' };
+const TIER_COLORS = { commun:'#ffffff', peuCommun:'#4caf50', rare:'#2196f3', epique:'#e040fb', fabuleux:'#fa73ff', legendaire:'#f0d050' };
 
 const SPRITE_BASE  = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/';
 const SPRITE_SHINY = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/';
@@ -326,7 +333,7 @@ function renderGrid() {
 
       if (filter === 'captured' && !captured) continue;
       if (filter === 'shiny'    && !hasShiny) continue;
-      if (['commun','peuCommun','rare','epique','legendaire'].includes(filter) && tier !== filter) continue;
+      if (['commun','peuCommun','rare','epique','fabuleux','legendaire'].includes(filter) && tier !== filter) continue;
       if (query && !name.toLowerCase().includes(query) && !String(id).includes(query)) continue;
 
       const spriteUrl = hasShiny
