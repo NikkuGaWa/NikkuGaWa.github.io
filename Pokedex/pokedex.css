@@ -1123,3 +1123,33 @@ body::before {
     padding-right: 8px;
   }
 }
+
+/* ════════════════════════════════════════════════
+   STATS — LIENS VERS POKÉDEX
+════════════════════════════════════════════════ */
+
+.stats-user-link {
+  cursor: pointer;
+}
+
+.stats-user-link:hover {
+  color: var(--gold);
+  text-decoration: underline;
+}
+
+.podium-card.clickable {
+  cursor: pointer;
+}
+
+.podium-card.clickable:hover {
+  transform: translateY(-4px);
+}
+
+.ranking-row.clickable {
+  cursor: pointer;
+}
+
+.ranking-row.clickable:hover {
+  border-color: var(--gold-dim);
+  background: rgba(240,208,80,0.06);
+}
