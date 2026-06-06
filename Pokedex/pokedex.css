@@ -1133,8 +1133,8 @@ body::before {
 }
 
 .stats-user-link:hover {
-  color: var(--gold);
-  text-decoration: underline;
+  color: var(--text);
+  text-decoration: none;
 }
 
 .podium-card.clickable {
@@ -1152,9 +1152,4 @@ body::before {
 .ranking-row.clickable:hover {
   border-color: var(--gold-dim);
   background: rgba(240,208,80,0.06);
-}
-
-.podium-name.stats-user-link:hover {
-  color: var(--text);
-  text-decoration: none;
 }
