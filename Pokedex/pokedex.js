@@ -113,7 +113,6 @@ let state = {
   activeGenFilter: 'all',
   activeStatsGen: 'all',
   searchQuery:  '',
-  isAdmin: false,
   adminUsers: [],
   adminViewingUser: null,
 };
@@ -430,8 +429,6 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const page = btn.dataset.page;
 
-    if (page === 'admin' && !state.isAdmin) return;
-
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
@@ -594,11 +591,9 @@ function renderPodiumRanking(containerId, list, total = POKEDEX_TOTAL) {
 }
 
 /* ════════════════════════════════════════════════
-   ADMIN
+   ADMIN (Devenu dresseurs)
 ════════════════════════════════════════════════ */
 async function loadAdminUsers() {
-  if (!state.isAdmin) return;
-
   const listEl = document.getElementById('admin-list');
   const currentEl = document.getElementById('admin-current');
 
@@ -707,8 +702,6 @@ function renderAdminUsers() {
 }
 
 async function viewUserPokedex(user) {
-  if (!state.isAdmin) return;
-
   const captures = await fetchCaptures(user.login);
 
   state.adminViewingUser = user;
@@ -747,6 +740,7 @@ async function viewUserPokedex(user) {
   document.getElementById('view-admin').style.display = 'none';
   document.getElementById('view-stats').style.display = 'none';
   document.getElementById('view-pokedex').style.display = 'block';
+  document.getElementById('back-to-me-btn').style.display = user.login !== state.user.login.toLowerCase() ? '' : 'none';
 
   renderGrid();
 }
@@ -778,12 +772,6 @@ async function init() {
 
     state.user = user;
 
-    state.isAdmin = user.login.toLowerCase() === 'nikkugawa';
-
-    document.querySelectorAll('.admin-only').forEach(el => {
-      el.style.display = state.isAdmin ? '' : 'none';
-    });
-
     document.getElementById('user-avatar').src       = user.profile_image_url;
     document.getElementById('user-name').textContent = user.display_name;
 
@@ -795,6 +783,7 @@ async function init() {
     state.captures = captures;
     state.ownCaptures = captures;
 
+    document.getElementById('back-to-me-btn').style.display = 'none';
     document.getElementById('page-landing').style.display = 'none';
     document.getElementById('page-pokedex').style.display = 'block';
 
@@ -927,6 +916,15 @@ document.querySelectorAll('.stats-tab-btn').forEach(btn => {
     state.activeStatsGen = btn.dataset.statsGen;
     loadStats(true);
   });
+});
+
+document.getElementById('back-to-me-btn').addEventListener('click', () => {
+  state.adminViewingUser = null;
+  state.captures = state.ownCaptures;
+
+  document.getElementById('back-to-me-btn').style.display = 'none';
+
+  renderGrid();
 });
 
 init();
