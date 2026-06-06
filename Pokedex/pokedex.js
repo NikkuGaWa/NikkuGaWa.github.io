@@ -867,7 +867,7 @@ document.getElementById('admin-search').addEventListener('input', () => {
   renderAdminUsers();
 });
 
-document.getElementById('admin-reset-btn').addEventListener('click', () => {
+document.getElementById('back-to-me-btn').addEventListener('click', () => {
   state.adminViewingUser = null;
   state.captures = state.ownCaptures;
 
@@ -916,15 +916,6 @@ document.querySelectorAll('.stats-tab-btn').forEach(btn => {
     state.activeStatsGen = btn.dataset.statsGen;
     loadStats(true);
   });
-});
-
-document.getElementById('back-to-me-btn').addEventListener('click', () => {
-  state.adminViewingUser = null;
-  state.captures = state.ownCaptures;
-
-  document.getElementById('back-to-me-btn').style.display = 'none';
-
-  renderGrid();
 });
 
 init();
