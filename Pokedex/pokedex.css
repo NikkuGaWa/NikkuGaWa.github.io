@@ -647,7 +647,7 @@ body::before {
   width: 158px;
   min-height: 230px;
   padding-top: 18px;
-  transform: translateY(-18px);
+  transform: translateY(-12px);
   border-color: rgba(240,208,80,0.62);
   box-shadow: 0 0 34px rgba(240,208,80,0.18), 0 14px 34px rgba(0,0,0,0.42);
 }
@@ -1142,7 +1142,7 @@ body::before {
 }
 
 .podium-card.clickable:hover {
-  transform: translateY(-4px);
+  box-shadow: 0 0 40px rgba(240,208,80,0.2);
 }
 
 .ranking-row.clickable {
