@@ -563,10 +563,10 @@ function renderPodiumRanking(containerId, list, total = POKEDEX_TOTAL) {
         const crown = place === 1 ? '👑' : place === 2 ? '🥈' : '🥉';
 
         return `
-          <div class="podium-card podium-${place}">
+          <div class="podium-card podium-${place} clickable" data-login="${escapeHtml(u.login)}">
             <div class="podium-rank">${crown}</div>
             ${avatarMarkup(u, 'podium-avatar')}
-            <div class="podium-name" title="${safeName}">${safeName}</div>
+            <div class="podium-name stats-user-link" data-login="${escapeHtml(u.login)}" title="${safeName}">${safeName}</div>
             <div class="podium-score">${completed} / ${total}</div>
             <div class="podium-percent">${percent}% complété</div>
           </div>
@@ -578,16 +578,29 @@ function renderPodiumRanking(containerId, list, total = POKEDEX_TOTAL) {
       ${rest.map((u, i) => {
         const safeName = escapeHtml(u.name);
         return `
-          <div class="ranking-row">
+          <div class="ranking-row clickable" data-login="${escapeHtml(u.login)}">
             <span class="rank-pos">#${i + 4}</span>
             ${avatarMarkup(u, 'rank-avatar')}
-            <span class="rank-name" title="${safeName}">${safeName}</span>
+            <span class="rank-name stats-user-link" data-login="${escapeHtml(u.login)}" title="${safeName}">${safeName}</span>
             <span class="rank-value">${u.pokemons.size} / ${total}</span>
           </div>
         `;
       }).join('')}
     </div>
   `;
+  container.querySelectorAll('[data-login]').forEach(el => {
+    el.addEventListener('click', () => {
+      const login = el.dataset.login;
+
+      const user = list.find(
+        u => u.login.toLowerCase() === login.toLowerCase()
+      );
+
+      if (user) {
+        viewUserPokedex(user);
+      }
+    });
+  });
 }
 
 /* ════════════════════════════════════════════════
