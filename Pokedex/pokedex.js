@@ -904,6 +904,7 @@ document.getElementById('back-to-me-btn').addEventListener('click', () => {
   document.getElementById('view-admin').style.display = 'none';
   document.getElementById('view-stats').style.display = 'none';
   document.getElementById('view-pokedex').style.display = 'block';
+  document.getElementById('back-to-me-btn').style.display = 'none';
 
   renderGrid();
 });
