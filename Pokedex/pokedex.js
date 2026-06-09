@@ -115,6 +115,10 @@ let state = {
   searchQuery:  '',
   adminUsers: [],
   adminViewingUser: null,
+  communityCaptures: [],
+  communityFilter: 'all',
+  communityGenFilter: 'all',
+  communitySearch: '',
 };
 
 /* ════════════════════════════════════════════════
@@ -432,12 +436,16 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
-    document.getElementById('view-pokedex').style.display = page === 'pokedex' ? 'block' : 'none';
-    document.getElementById('view-stats').style.display   = page === 'stats'   ? 'block' : 'none';
-    document.getElementById('view-admin').style.display   = page === 'admin'   ? 'block' : 'none';
+    document.getElementById('view-pokedex').style.display   = page === 'pokedex'    ? 'block' : 'none';
+    document.getElementById('view-community').style.display = page === 'community'  ? 'block' : 'none';
+    document.getElementById('view-stats').style.display     = page === 'stats'      ? 'block' : 'none';
+    document.getElementById('view-rank').style.display      = page === 'ranking'    ? 'block' : 'none';
+    document.getElementById('view-admin').style.display     = page === 'admin'      ? 'block' : 'none';
 
-    if (page === 'stats') loadStats();
-    if (page === 'admin') loadAdminUsers();
+    if (page === 'ranking')   loadStats();
+    if (page === 'admin')     loadAdminUsers();
+    if (page === 'stats')     loadStatsDashboard();
+    if (page === 'community') loadCommunityPokedex();
   });
 });
 
@@ -460,7 +468,33 @@ async function loadStats(forceRefresh = false) {
     state.statsRowsCache = res.ok ? await res.json() : [];
   }
 
+  // Charge les données pour les meilleurs dresseurs (besoin de captured_at)
+  if (!state.statsDashCache || forceRefresh) {
+    const res2 = await fetch(
+      `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id,is_shiny,captured_at`,
+      {
+        headers: {
+          'apikey': CONFIG.supabase.key,
+          'Authorization': `Bearer ${CONFIG.supabase.key}`,
+        }
+      }
+    );
+    state.statsDashCache = res2.ok ? await res2.json() : [];
+  }
+
+  const allRows = state.statsDashCache.filter(r =>
+    !EXCLUDED_USER_NAMES.includes(String(r.user_name || '').toLowerCase())
+  );
+
+  state.dashSortedByDate = [...allRows]
+    .filter(r => r.captured_at)
+    .sort((a, b) => new Date(a.captured_at) - new Date(b.captured_at));
+
   renderStatsRanking();
+
+  // Récupère le filtre actif pour les meilleurs dresseurs
+  const activeFirstGenBtn = document.querySelector('#view-rank [data-first-gen].active');
+  renderBestTrainerCommuPanel(activeFirstGenBtn ? activeFirstGenBtn.dataset.firstGen : 'all');
 }
 
 function getStatsGenerationConfig() {
@@ -601,6 +635,385 @@ function renderPodiumRanking(containerId, list, total = POKEDEX_TOTAL) {
       }
     });
   });
+}
+
+/* ════════════════════════════════════════════════
+   POKÉDEX COMMUNAUTÉ
+════════════════════════════════════════════════ */
+async function loadCommunityPokedex() {
+  if (state.communityCaptures.length) {
+    renderCommunityGrid();
+    return;
+  }
+
+  document.getElementById('community-grid').innerHTML = `
+    <div style="grid-column:1/-1;text-align:center;color:var(--muted);
+                font-family:'Press Start 2P',monospace;font-size:9px;
+                padding:60px 0;line-height:2.5">
+      Chargement...<br>
+    </div>`;
+
+  const res = await fetch(
+    `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id,is_shiny,captured_at&order=captured_at.asc`,
+    {
+      headers: {
+        'apikey': CONFIG.supabase.key,
+        'Authorization': `Bearer ${CONFIG.supabase.key}`,
+      }
+    }
+  );
+
+  const rows = res.ok ? await res.json() : [];
+
+  // On garde uniquement la première capture par pokemon_id (ordre asc = le plus ancien en premier)
+  const seen = {};
+  for (const r of rows) {
+    if (EXCLUDED_USER_NAMES.includes(String(r.user_name || '').toLowerCase())) continue;
+    if (!seen[r.pokemon_id]) seen[r.pokemon_id] = r;
+  }
+
+  state.communityCaptures = seen; // objet { pokemon_id: firstCapture }
+  renderCommunityGrid();
+}
+
+function renderCommunityProgressBars() {
+  const capturedIds = new Set(Object.keys(state.communityCaptures).map(Number));
+  const count = capturedIds.size;
+  const pct   = Math.round((count / POKEDEX_TOTAL) * 100);
+
+  document.getElementById('community-progress-fill').style.width  = `${pct}%`;
+  document.getElementById('community-progress-count').textContent = `${count} / ${POKEDEX_TOTAL}`;
+
+  const panel = document.getElementById('community-generation-progress-panel');
+  if (!panel) return;
+
+  panel.innerHTML = GENERATIONS.map(gen => {
+    const genCaptured = [...capturedIds].filter(id => id >= gen.start && id <= gen.end).length;
+    const total   = getGenerationTotal(gen);
+    const genPct  = Math.round((genCaptured / total) * 100);
+    return `
+      <div class="generation-progress-row">
+        <div class="generation-progress-head">
+          <span>${gen.label}</span>
+          <strong>${genCaptured} / ${total}</strong>
+        </div>
+        <div class="generation-progress-track">
+          <div class="generation-progress-fill" style="width:${genPct}%"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderCommunityGrid() {
+  const grid   = document.getElementById('community-grid');
+  const filter = state.communityFilter;
+  const genFilter = state.communityGenFilter;
+  const query  = state.communitySearch.toLowerCase();
+  const capMap = state.communityCaptures; // { pokemon_id: firstCapture }
+
+  renderCommunityProgressBars();
+  grid.innerHTML = '';
+
+  const visibleGens = genFilter === 'all'
+    ? GENERATIONS
+    : GENERATIONS.filter(g => String(g.id) === String(genFilter));
+
+  let displayedCount = 0;
+
+  for (const gen of visibleGens) {
+    const section = document.createElement('section');
+    section.className = 'generation-section';
+    section.innerHTML = `
+      <div class="generation-title">
+        <div class="generation-title-main"><span>${gen.label}</span></div>
+      </div>
+      <div class="generation-grid"></div>
+    `;
+    const genGrid = section.querySelector('.generation-grid');
+
+    for (let id = gen.start; id <= gen.end; id++) {
+      const tier     = POKEMON_TIERS[id];
+      const name     = state.names[id] || `#${id}`;
+      const firstCap = capMap[id];
+      const captured = !!firstCap;
+      const hasShiny = firstCap?.is_shiny;
+
+      if (filter === 'captured' && !captured) continue;
+      if (filter === 'shiny'    && !hasShiny) continue;
+      if (['commun','peuCommun','rare','epique','fabuleux','legendaire'].includes(filter) && tier !== filter) continue;
+      if (query && !name.toLowerCase().includes(query) && !String(id).includes(query)) continue;
+
+      const spriteUrl = hasShiny ? `${SPRITE_SHINY}${id}.png` : `${SPRITE_BASE}${id}.png`;
+
+      const card = document.createElement('div');
+      card.className = `poke-card r-${tier}${captured ? ' captured' : ''}${hasShiny ? ' shiny-card' : ''}`;
+      card.dataset.id = id;
+      card.innerHTML = `
+        <div class="poke-sprite-wrap">
+          <img class="poke-sprite" src="${spriteUrl}" alt="${name}" loading="lazy">
+          ${hasShiny ? '<span class="shiny-badge">✨</span>' : ''}
+        </div>
+        <div class="poke-number">#${String(id).padStart(3, '0')}</div>
+        <div class="poke-name">${captured ? name : '???'}</div>
+        ${captured ? `<div class="poke-date">${formatDate(firstCap.captured_at)}</div>` : ''}
+      `;
+
+      card.addEventListener('click', () => openCommunityModal(id, firstCap));
+      genGrid.appendChild(card);
+      displayedCount++;
+    }
+
+    if (genGrid.children.length) grid.appendChild(section);
+  }
+
+  if (displayedCount === 0) {
+    grid.innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;color:var(--muted);
+                  font-family:'Press Start 2P',monospace;font-size:9px;
+                  padding:60px 0;line-height:2.5">
+        Aucun Pokémon<br>trouvé
+      </div>`;
+  }
+}
+
+function openCommunityModal(id, firstCap) {
+  const name     = state.names[id] || `#${id}`;
+  const tier     = POKEMON_TIERS[id];
+  const captured = !!firstCap;
+  const hasShiny = firstCap?.is_shiny;
+
+  const spriteUrl = hasShiny ? `${SPRITE_SHINY}${id}.png` : `${SPRITE_BASE}${id}.png`;
+
+  document.getElementById('modal-sprite').src       = spriteUrl;
+  document.getElementById('modal-sprite').className = `modal-sprite${captured ? '' : ' silhouette'}`;
+  document.getElementById('modal-name').textContent   = captured ? name : '???';
+  document.getElementById('modal-number').textContent = `#${String(id).padStart(3, '0')}`;
+
+  const badges = document.getElementById('modal-badges');
+  badges.innerHTML = '';
+
+  const tb = document.createElement('span');
+  tb.className = 'modal-badge';
+  tb.style.cssText = `background:${TIER_COLORS[tier]}22;color:${TIER_COLORS[tier]};border:1px solid ${TIER_COLORS[tier]}44`;
+  tb.textContent = `${TIER_STARS[tier]} ${TIER_LABELS[tier]}`;
+  badges.appendChild(tb);
+
+  if (hasShiny) {
+    const sb = document.createElement('span');
+    sb.className = 'modal-badge';
+    sb.style.cssText = 'background:rgba(0,229,255,0.1);color:#00e5ff;border:1px solid rgba(0,229,255,0.3)';
+    sb.textContent = '✨ Shiny';
+    badges.appendChild(sb);
+  }
+
+  const info = document.getElementById('modal-info');
+  if (captured) {
+    info.innerHTML = `
+      <div class="community-modal-first">
+        <div class="community-modal-label">Premier captureur</div>
+        <div class="community-modal-trainer">${escapeHtml(firstCap.user_name || firstCap.user_login)}</div>
+        <div class="poke-date" style="margin-top:4px">${firstCap.is_shiny ? '✨ ' : ''}le ${formatDate(firstCap.captured_at)}</div>
+      </div>
+    `;
+  } else {
+    info.innerHTML = `<div class="modal-not-captured">Pas encore capturé</div>`;
+  }
+
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function renderBestTrainerCommuPanel(gen) {
+  const el = document.getElementById('sdash-first-capturers');
+  if (!el || !state.dashSortedByDate) return;
+
+  const minId = gen === '1' ? 1   : gen === '2' ? 152 : 1;
+  const maxId = gen === '1' ? 151 : gen === '2' ? 251 : 251;
+  const total = maxId - minId + 1;
+
+  const firstCapturers = {};
+  const seenPokemon = new Set();
+
+  for (const r of state.dashSortedByDate) {
+    const id = Number(r.pokemon_id);
+    if (id < minId || id > maxId) continue;
+    if (!seenPokemon.has(id)) {
+      seenPokemon.add(id);
+      const login = r.user_login;
+      if (!firstCapturers[login]) firstCapturers[login] = { login, name: r.user_name || login, avatar: '', pokemons: new Set() };
+      firstCapturers[login].pokemons.add(id);
+    }
+  }
+
+  const top = Object.values(firstCapturers).sort((a, b) => b.pokemons.size - a.pokemons.size).slice(0, 10);
+
+  if (!top.length) {
+    el.innerHTML = '<div class="stats-empty">Aucune donnée</div>';
+    return;
+  }
+
+  // Fetch avatars then render podium
+  fetchTwitchUsersByLogin(top.map(u => u.login)).then(avatars => {
+    for (const u of top) {
+      u.avatar = avatars[u.login] || '';
+    }
+    renderPodiumRanking('sdash-first-capturers', top, total);
+  });
+}
+
+function renderRarityPanel(gen) {
+  const rarityEl = document.getElementById('sdash-rarity-list');
+  if (!rarityEl) return;
+
+  const capturedIds = state.dashCapturedIds;
+  if (!capturedIds) return;
+
+  const minId = gen === '1' ? 1   : gen === '2' ? 152 : 1;
+  const maxId = gen === '1' ? 151 : gen === '2' ? 251 : 251;
+
+  const TIERS_ORDER = ['legendaire','fabuleux','epique','rare','peuCommun','commun'];
+
+  rarityEl.innerHTML = TIERS_ORDER.map(tier => {
+    const ids      = (TIERS_DEF[tier] || []).filter(id => id >= minId && id <= maxId);
+    const total    = ids.length;
+    if (!total) return '';
+    const captured = ids.filter(id => capturedIds.has(id)).length;
+    const pct      = Math.round((captured / total) * 100);
+    const color    = TIER_COLORS[tier];
+    return `
+      <div class="sdash-rarity-row">
+        <div class="sdash-rarity-head">
+          <span class="sdash-rarity-name" style="color:${color}">${TIER_STARS[tier]} ${TIER_LABELS[tier]}</span>
+          <span class="sdash-rarity-count">${captured} / ${total}</span>
+        </div>
+        <div class="sdash-bar-track">
+          <div class="sdash-bar-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderTopPokemonPanel(gen) {
+  const topEl = document.getElementById('sdash-top-pokemon');
+  if (!topEl || !state.dashAllRows) return;
+
+  const minId = gen === '1' ? 1   : gen === '2' ? 152 : 1;
+  const maxId = gen === '1' ? 151 : gen === '2' ? 251 : 251;
+
+  const rows = state.dashAllRows.filter(r => {
+    const id = Number(r.pokemon_id);
+    return id >= minId && id <= maxId;
+  });
+
+  const pokemonCounts = {};
+  for (const r of rows) {
+    pokemonCounts[r.pokemon_id] = (pokemonCounts[r.pokemon_id] || 0) + 1;
+  }
+
+  const topPokemon = Object.entries(pokemonCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8);
+
+  const maxCount = topPokemon[0]?.[1] || 1;
+
+  topEl.innerHTML = topPokemon.length ? topPokemon.map(([id, count], i) => {
+    const name = state.names[id] || `#${id}`;
+    const tier = POKEMON_TIERS[id];
+    const color = TIER_COLORS[tier] || '#fff';
+    const barPct = Math.round((count / maxCount) * 100);
+    return `
+      <div class="sdash-top-row">
+        <span class="sdash-top-rank">#${i + 1}</span>
+        <img class="sdash-top-sprite" src="${SPRITE_BASE}${id}.png" alt="${escapeHtml(name)}" loading="lazy">
+        <span class="sdash-top-name" style="color:${color}">${escapeHtml(name)}</span>
+        <div class="sdash-bar-track sdash-bar-inline">
+          <div class="sdash-bar-fill" style="width:${barPct}%;background:${color}44"></div>
+        </div>
+        <span class="sdash-top-val">${count}</span>
+      </div>
+    `;
+  }).join('') : '<div class="stats-empty">Aucune donnée</div>';
+}
+
+/* ════════════════════════════════════════════════
+   STATS DASHBOARD
+════════════════════════════════════════════════ */
+async function loadStatsDashboard() {
+  // Charge les données si pas encore en cache
+  if (!state.statsDashCache) {
+    const res = await fetch(
+      `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id,is_shiny,captured_at`,
+      {
+        headers: {
+          'apikey': CONFIG.supabase.key,
+          'Authorization': `Bearer ${CONFIG.supabase.key}`,
+        }
+      }
+    );
+    state.statsDashCache = res.ok ? await res.json() : [];
+  }
+
+  const allRows = state.statsDashCache.filter(r =>
+    !EXCLUDED_USER_NAMES.includes(String(r.user_name || '').toLowerCase())
+  );
+  const fullRows = [...allRows].sort((a, b) => new Date(b.captured_at) - new Date(a.captured_at));
+
+  // ── KPIs ──────────────────────────────────────
+  const allCapturedIds = new Set(allRows.map(r => r.pokemon_id));
+  state.dashCapturedIds = allCapturedIds;
+  const shinies = allRows.filter(r => r.is_shiny);
+  const trainers = new Set(allRows.map(r => r.user_login)).size;
+  const pct = Math.round((allCapturedIds.size / POKEDEX_TOTAL) * 100);
+
+  document.getElementById('kpi-captured-num').textContent = allRows.length;
+  document.getElementById('kpi-pct-num').textContent      = pct + '%';
+  document.getElementById('kpi-shiny-num').textContent    = shinies.length;
+  document.getElementById('kpi-trainers-num').textContent = trainers;
+
+  // ── Répartition par rareté ────────────────────
+  renderRarityPanel('all');
+
+  document.querySelectorAll('.sdash-gen-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sdash-gen-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderRarityPanel(btn.dataset.rarityGen);
+    });
+  });
+
+  // ── Top pokémon les plus capturés ─────────────
+  state.dashAllRows = allRows;
+  renderTopPokemonPanel('all');
+
+  document.querySelectorAll('[data-top-gen]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-top-gen]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderTopPokemonPanel(btn.dataset.topGen);
+    });
+  });
+
+  // ── Progression par génération (communauté) ───
+  const genBarsEl = document.getElementById('sdash-gen-bars');
+  genBarsEl.innerHTML = GENERATIONS.map(gen => {
+    const total = getGenerationTotal(gen);
+    const captured = gen.end <= POKEDEX_TOTAL
+      ? new Set(allRows.map(r=>r.pokemon_id).filter(id => id >= gen.start && id <= gen.end)).size
+      : 0;
+    const pct = Math.round((captured / total) * 100);
+    return `
+      <div class="sdash-gen-row">
+        <div class="sdash-gen-label">
+          <span>${gen.label}</span>
+          <strong>${captured} / ${total} <span class="sdash-gen-pct">(${pct}%)</span></strong>
+        </div>
+        <div class="sdash-bar-track">
+          <div class="sdash-bar-fill sdash-bar-gold" style="width:${pct}%"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 /* ════════════════════════════════════════════════
@@ -750,9 +1163,11 @@ async function viewUserPokedex(user) {
     .querySelector('.nav-btn[data-page="pokedex"]')
     .classList.add('active');
 
-  document.getElementById('view-admin').style.display = 'none';
-  document.getElementById('view-stats').style.display = 'none';
-  document.getElementById('view-pokedex').style.display = 'block';
+  document.getElementById('view-admin').style.display     = 'none';
+  document.getElementById('view-rank').style.display      = 'none';
+  document.getElementById('view-stats').style.display     = 'none';
+  document.getElementById('view-community').style.display = 'none';
+  document.getElementById('view-pokedex').style.display   = 'block';
   document.getElementById('back-to-me-btn').style.display = user.login !== state.user.login.toLowerCase() ? '' : 'none';
 
   renderGrid();
@@ -914,22 +1329,70 @@ document.getElementById('back-to-me-btn').addEventListener('click', () => {
     .querySelector('.nav-btn[data-page="pokedex"]')
     .classList.add('active');
 
-  document.getElementById('view-admin').style.display = 'none';
-  document.getElementById('view-stats').style.display = 'none';
-  document.getElementById('view-pokedex').style.display = 'block';
+  document.getElementById('view-admin').style.display     = 'none';
+  document.getElementById('view-rank').style.display      = 'none';
+  document.getElementById('view-stats').style.display     = 'none';
+  document.getElementById('view-community').style.display = 'none';
+  document.getElementById('view-pokedex').style.display   = 'block';
   document.getElementById('back-to-me-btn').style.display = 'none';
 
   renderGrid();
 });
 
 // ─── Onglets stats par génération ──────────────
-document.querySelectorAll('.stats-tab-btn').forEach(btn => {
+document.querySelectorAll('[data-stats-gen]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.stats-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('[data-stats-gen]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.activeStatsGen = btn.dataset.statsGen;
     loadStats(true);
   });
 });
+
+// ─── Onglets meilleurs dresseurs (classements) ─
+document.querySelectorAll('#view-rank [data-first-gen]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#view-rank [data-first-gen]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderBestTrainerCommuPanel(btn.dataset.firstGen);
+  });
+});
+
+// ─── Filtres communauté ───────────────────────
+document.querySelectorAll('#view-community .filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#view-community .filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.communityFilter = btn.dataset.communityFilter;
+    renderCommunityGrid();
+  });
+});
+
+document.querySelectorAll('#view-community .gen-filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#view-community .gen-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.communityGenFilter = btn.dataset.communityGen;
+    renderCommunityGrid();
+  });
+});
+
+document.getElementById('community-filter-search').addEventListener('input', e => {
+  state.communitySearch = e.target.value;
+  renderCommunityGrid();
+});
+
+const communityProgressToggle = document.getElementById('community-progress-toggle');
+if (communityProgressToggle) {
+  communityProgressToggle.addEventListener('click', () => {
+    const panel  = document.getElementById('community-generation-progress-panel');
+    const isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : 'grid';
+    communityProgressToggle.classList.toggle('open', !isOpen);
+    communityProgressToggle.setAttribute('aria-expanded', String(!isOpen));
+    const label = communityProgressToggle.querySelector('span');
+    if (label) label.textContent = isOpen ? 'Détails' : 'Masquer';
+  });
+}
 
 init();
