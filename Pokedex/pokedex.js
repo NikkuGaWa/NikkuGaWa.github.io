@@ -115,7 +115,7 @@ let state = {
   searchQuery:  '',
   adminUsers: [],
   adminViewingUser: null,
-  communityCaptures: [],
+  communityCaptures: {},
   communityFilter: 'all',
   communityGenFilter: 'all',
   communitySearch: '',
@@ -442,10 +442,44 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     document.getElementById('view-rank').style.display      = page === 'ranking'    ? 'block' : 'none';
     document.getElementById('view-admin').style.display     = page === 'admin'      ? 'block' : 'none';
 
-    if (page === 'ranking')   loadStats();
+    // ── Reset filtres Pokédex ──────────────────
+    if (page === 'pokedex') {
+      state.activeFilter    = 'all';
+      state.activeGenFilter = 'all';
+      state.searchQuery     = '';
+      document.getElementById('filter-search').value = '';
+      document.querySelectorAll('#view-pokedex .filter-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('#view-pokedex .filter-btn[data-filter="all"]').classList.add('active');
+      document.querySelectorAll('#view-pokedex .gen-filter-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('#view-pokedex .gen-filter-btn[data-gen-filter="all"]').classList.add('active');
+      renderGrid();
+    }
+
+    // ── Reset filtres Communauté ───────────────
+    if (page === 'community') {
+      state.communityFilter    = 'all';
+      state.communityGenFilter = 'all';
+      state.communitySearch    = '';
+      document.getElementById('community-filter-search').value = '';
+      document.querySelectorAll('#view-community .filter-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('#view-community .filter-btn[data-community-filter="all"]').classList.add('active');
+      document.querySelectorAll('#view-community .gen-filter-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('#view-community .gen-filter-btn[data-community-gen="all"]').classList.add('active');
+      loadCommunityPokedex();
+    }
+
+    // ── Reset filtres Classements ──────────────
+    if (page === 'ranking') {
+      state.activeStatsGen = 'all';
+      document.querySelectorAll('[data-stats-gen]').forEach(b => b.classList.remove('active'));
+      document.querySelector('[data-stats-gen="all"]').classList.add('active');
+      document.querySelectorAll('#view-rank [data-first-gen]').forEach(b => b.classList.remove('active'));
+      document.querySelector('#view-rank [data-first-gen="all"]').classList.add('active');
+      loadStats();
+    }
+
     if (page === 'admin')     loadAdminUsers();
     if (page === 'stats')     loadStatsDashboard();
-    if (page === 'community') loadCommunityPokedex();
   });
 });
 
@@ -641,7 +675,7 @@ function renderPodiumRanking(containerId, list, total = POKEDEX_TOTAL) {
    POKÉDEX COMMUNAUTÉ
 ════════════════════════════════════════════════ */
 async function loadCommunityPokedex() {
-  if (state.communityCaptures.length) {
+  if (Object.keys(state.communityCaptures).length) {
     renderCommunityGrid();
     return;
   }
@@ -974,9 +1008,10 @@ async function loadStatsDashboard() {
   // ── Répartition par rareté ────────────────────
   renderRarityPanel('all');
 
-  document.querySelectorAll('.sdash-gen-tab').forEach(btn => {
+  const rarityPanel = document.getElementById('sdash-rarity-list').closest('.sdash-panel');
+  rarityPanel.querySelectorAll('.sdash-gen-tab').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.sdash-gen-tab').forEach(b => b.classList.remove('active'));
+      rarityPanel.querySelectorAll('.sdash-gen-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       renderRarityPanel(btn.dataset.rarityGen);
     });
@@ -986,9 +1021,10 @@ async function loadStatsDashboard() {
   state.dashAllRows = allRows;
   renderTopPokemonPanel('all');
 
-  document.querySelectorAll('[data-top-gen]').forEach(btn => {
+  const topPanel = document.getElementById('sdash-top-pokemon').closest('.sdash-panel');
+  topPanel.querySelectorAll('[data-top-gen]').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-top-gen]').forEach(b => b.classList.remove('active'));
+      topPanel.querySelectorAll('[data-top-gen]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       renderTopPokemonPanel(btn.dataset.topGen);
     });
