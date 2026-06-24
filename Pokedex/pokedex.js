@@ -115,7 +115,7 @@ let state = {
   searchQuery:  '',
   adminUsers: [],
   adminViewingUser: null,
-  communityCaptures: {},
+  communityCaptures: [],
   communityFilter: 'all',
   communityGenFilter: 'all',
   communitySearch: '',
@@ -191,28 +191,24 @@ async function fetchTwitchUsersByLogin(logins) {
    SUPABASE
 ════════════════════════════════════════════════ */
 async function fetchCaptures(userLogin) {
-  const res = await fetch(
+  return fetchAllSupabaseRows(
     `${CONFIG.supabase.url}/rest/v1/captures?user_login=eq.${userLogin.toLowerCase()}&select=*`,
     {
-      headers: {
-        'apikey':        CONFIG.supabase.key,
-        'Authorization': `Bearer ${CONFIG.supabase.key}`,
-      }
+      'apikey':        CONFIG.supabase.key,
+      'Authorization': `Bearer ${CONFIG.supabase.key}`,
     }
   );
-  return res.ok ? await res.json() : [];
 }
 
 async function fetchGlobalStats() {
   try {
-    const res = await fetch(`${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name`, {
-      headers: {
+    const rows = await fetchAllSupabaseRows(
+      `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name`,
+      {
         'apikey': CONFIG.supabase.key,
         'Authorization': `Bearer ${CONFIG.supabase.key}`,
       }
-    });
-
-    const rows = res.ok ? await res.json() : [];
+    );
     const filteredRows = rows.filter(r =>
       !EXCLUDED_USER_NAMES.includes(String(r.user_name || '').toLowerCase())
     );
@@ -222,6 +218,32 @@ async function fetchGlobalStats() {
     document.getElementById('stat-trainers').textContent = trainers;
     document.getElementById('stat-captures').textContent = filteredRows.length;
   } catch {}
+}
+
+/* ════════════════════════════════════════════════
+   SUPABASE — Pagination complète
+════════════════════════════════════════════════ */
+async function fetchAllSupabaseRows(baseUrl, baseHeaders) {
+  let all = [];
+  let offset = 0;
+  const pageSize = 1000;
+  while (true) {
+    const url = `${baseUrl}&limit=${pageSize}&offset=${offset}`;
+    try {
+      const res = await fetch(url, {
+        headers: { ...baseHeaders, 'Prefer': 'count=none' },
+      });
+      if (!res.ok) break;
+      const rows = await res.json();
+      if (!rows || !rows.length) break;
+      all.push(...rows);
+      if (rows.length < pageSize) break;
+      offset += pageSize;
+    } catch {
+      break;
+    }
+  }
+  return all;
 }
 
 /* ════════════════════════════════════════════════
@@ -442,44 +464,10 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     document.getElementById('view-rank').style.display      = page === 'ranking'    ? 'block' : 'none';
     document.getElementById('view-admin').style.display     = page === 'admin'      ? 'block' : 'none';
 
-    // ── Reset filtres Pokédex ──────────────────
-    if (page === 'pokedex') {
-      state.activeFilter    = 'all';
-      state.activeGenFilter = 'all';
-      state.searchQuery     = '';
-      document.getElementById('filter-search').value = '';
-      document.querySelectorAll('#view-pokedex .filter-btn').forEach(b => b.classList.remove('active'));
-      document.querySelector('#view-pokedex .filter-btn[data-filter="all"]').classList.add('active');
-      document.querySelectorAll('#view-pokedex .gen-filter-btn').forEach(b => b.classList.remove('active'));
-      document.querySelector('#view-pokedex .gen-filter-btn[data-gen-filter="all"]').classList.add('active');
-      renderGrid();
-    }
-
-    // ── Reset filtres Communauté ───────────────
-    if (page === 'community') {
-      state.communityFilter    = 'all';
-      state.communityGenFilter = 'all';
-      state.communitySearch    = '';
-      document.getElementById('community-filter-search').value = '';
-      document.querySelectorAll('#view-community .filter-btn').forEach(b => b.classList.remove('active'));
-      document.querySelector('#view-community .filter-btn[data-community-filter="all"]').classList.add('active');
-      document.querySelectorAll('#view-community .gen-filter-btn').forEach(b => b.classList.remove('active'));
-      document.querySelector('#view-community .gen-filter-btn[data-community-gen="all"]').classList.add('active');
-      loadCommunityPokedex();
-    }
-
-    // ── Reset filtres Classements ──────────────
-    if (page === 'ranking') {
-      state.activeStatsGen = 'all';
-      document.querySelectorAll('[data-stats-gen]').forEach(b => b.classList.remove('active'));
-      document.querySelector('[data-stats-gen="all"]').classList.add('active');
-      document.querySelectorAll('#view-rank [data-first-gen]').forEach(b => b.classList.remove('active'));
-      document.querySelector('#view-rank [data-first-gen="all"]').classList.add('active');
-      loadStats();
-    }
-
-    if (page === 'admin')     loadAdminUsers();
-    if (page === 'stats')     loadStatsDashboard();
+    if (page === 'ranking')   loadStats(true);
+    if (page === 'admin')     loadAdminUsers(true);
+    if (page === 'stats')     loadStatsDashboard(true);
+    if (page === 'community') loadCommunityPokedex(true);
   });
 });
 
@@ -488,33 +476,18 @@ async function loadStats(forceRefresh = false) {
   const container = document.getElementById('rank-completion');
   container.innerHTML = '<div class="stats-loading">Chargement du classement...</div>';
 
-  if (!state.statsRowsCache || forceRefresh) {
-    const res = await fetch(
-      `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id`,
-      {
-        headers: {
-          'apikey': CONFIG.supabase.key,
-          'Authorization': `Bearer ${CONFIG.supabase.key}`,
-        }
-      }
-    );
-
-    state.statsRowsCache = res.ok ? await res.json() : [];
-  }
-
-  // Charge les données pour les meilleurs dresseurs (besoin de captured_at)
   if (!state.statsDashCache || forceRefresh) {
-    const res2 = await fetch(
+    state.statsDashCache = await fetchAllSupabaseRows(
       `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id,is_shiny,captured_at`,
       {
-        headers: {
-          'apikey': CONFIG.supabase.key,
-          'Authorization': `Bearer ${CONFIG.supabase.key}`,
-        }
+        'apikey': CONFIG.supabase.key,
+        'Authorization': `Bearer ${CONFIG.supabase.key}`,
       }
     );
-    state.statsDashCache = res2.ok ? await res2.json() : [];
   }
+
+  // statsRowsCache pointe sur le même cache — pas de second fetch
+  state.statsRowsCache = state.statsDashCache;
 
   const allRows = state.statsDashCache.filter(r =>
     !EXCLUDED_USER_NAMES.includes(String(r.user_name || '').toLowerCase())
@@ -674,8 +647,8 @@ function renderPodiumRanking(containerId, list, total = POKEDEX_TOTAL) {
 /* ════════════════════════════════════════════════
    POKÉDEX COMMUNAUTÉ
 ════════════════════════════════════════════════ */
-async function loadCommunityPokedex() {
-  if (Object.keys(state.communityCaptures).length) {
+async function loadCommunityPokedex(forceRefresh = false) {
+  if (Object.keys(state.communityCaptures).length && !forceRefresh) {
     renderCommunityGrid();
     return;
   }
@@ -687,17 +660,13 @@ async function loadCommunityPokedex() {
       Chargement...<br>
     </div>`;
 
-  const res = await fetch(
+  const rows = await fetchAllSupabaseRows(
     `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id,is_shiny,captured_at&order=captured_at.asc`,
     {
-      headers: {
-        'apikey': CONFIG.supabase.key,
-        'Authorization': `Bearer ${CONFIG.supabase.key}`,
-      }
+      'apikey': CONFIG.supabase.key,
+      'Authorization': `Bearer ${CONFIG.supabase.key}`,
     }
   );
-
-  const rows = res.ok ? await res.json() : [];
 
   // On garde uniquement la première capture par pokemon_id (ordre asc = le plus ancien en premier)
   const seen = {};
@@ -973,19 +942,16 @@ function renderTopPokemonPanel(gen) {
 /* ════════════════════════════════════════════════
    STATS DASHBOARD
 ════════════════════════════════════════════════ */
-async function loadStatsDashboard() {
+async function loadStatsDashboard(forceRefresh = false) {
   // Charge les données si pas encore en cache
-  if (!state.statsDashCache) {
-    const res = await fetch(
+  if (!state.statsDashCache || forceRefresh) {
+    state.statsDashCache = await fetchAllSupabaseRows(
       `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id,is_shiny,captured_at`,
       {
-        headers: {
-          'apikey': CONFIG.supabase.key,
-          'Authorization': `Bearer ${CONFIG.supabase.key}`,
-        }
+        'apikey': CONFIG.supabase.key,
+        'Authorization': `Bearer ${CONFIG.supabase.key}`,
       }
     );
-    state.statsDashCache = res.ok ? await res.json() : [];
   }
 
   const allRows = state.statsDashCache.filter(r =>
@@ -1008,10 +974,9 @@ async function loadStatsDashboard() {
   // ── Répartition par rareté ────────────────────
   renderRarityPanel('all');
 
-  const rarityPanel = document.getElementById('sdash-rarity-list').closest('.sdash-panel');
-  rarityPanel.querySelectorAll('.sdash-gen-tab').forEach(btn => {
+  document.querySelectorAll('.sdash-gen-tab').forEach(btn => {
     btn.addEventListener('click', () => {
-      rarityPanel.querySelectorAll('.sdash-gen-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.sdash-gen-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       renderRarityPanel(btn.dataset.rarityGen);
     });
@@ -1021,10 +986,9 @@ async function loadStatsDashboard() {
   state.dashAllRows = allRows;
   renderTopPokemonPanel('all');
 
-  const topPanel = document.getElementById('sdash-top-pokemon').closest('.sdash-panel');
-  topPanel.querySelectorAll('[data-top-gen]').forEach(btn => {
+  document.querySelectorAll('[data-top-gen]').forEach(btn => {
     btn.addEventListener('click', () => {
-      topPanel.querySelectorAll('[data-top-gen]').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('[data-top-gen]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       renderTopPokemonPanel(btn.dataset.topGen);
     });
@@ -1055,7 +1019,7 @@ async function loadStatsDashboard() {
 /* ════════════════════════════════════════════════
    ADMIN (Devenu dresseurs)
 ════════════════════════════════════════════════ */
-async function loadAdminUsers() {
+async function loadAdminUsers(forceRefresh = false) {
   const listEl = document.getElementById('admin-list');
   const currentEl = document.getElementById('admin-current');
 
@@ -1065,17 +1029,13 @@ async function loadAdminUsers() {
     </div>
   `;
 
-  const res = await fetch(
+  const rows = await fetchAllSupabaseRows(
     `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id`,
     {
-      headers: {
-        'apikey': CONFIG.supabase.key,
-        'Authorization': `Bearer ${CONFIG.supabase.key}`,
-      }
+      'apikey': CONFIG.supabase.key,
+      'Authorization': `Bearer ${CONFIG.supabase.key}`,
     }
   );
-
-  const rows = res.ok ? await res.json() : [];
 
   const filteredRows = rows.filter(r =>
     !EXCLUDED_USER_NAMES.includes(
