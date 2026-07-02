@@ -1,45 +1,71 @@
 /* ════════════════════════════════════════════════
    VARIABLES & RESET
 ════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DM+Sans:wght@400;500;600;700&display=swap');
+
 :root {
-  --bg:          #0a0a12;
-  --bg2:         #111120;
-  --bg3:         #1a1a2e;
-  --border:      rgba(240,208,80,0.15);
-  --gold:        #f0d050;
-  --gold-dim:    rgba(240,208,80,0.5);
-  --text:        #e8e8f0;
-  --muted:       #555570;
-  --commun:      #ffffff;
-  --peucommun:   #6dff6d;
-  --rare:        #6db5ff;
-  --epique:      #e040fb;
-  --fabuleux:  #fa73ff;
-  --legendaire:  #ffd700;
-  --shiny:       #00e5ff;
-  --card-size:   96px;
-  --radius:      8px;
+  --bg:             #0a0a12;
+  --bg2:            #111120;
+  --bg3:            #1a1a2e;
+  --border:         rgba(240,208,80,0.15);
+  --gold:           #f0d050;
+  --gold-dim:       rgba(240,208,80,0.5);
+  --text:           #e8e8f0;
+  --muted:          #555570;
+  --commun:         #ffffff;
+  --peucommun:      #6dff6d;
+  --rare:           #6db5ff;
+  --epique:         #e040fb;
+  --fabuleux:       #fa73ff;
+  --legendaire:     #ffd700;
+  --shiny:          #00e5ff;
+  --card-size:      96px;
+  --radius:         10px;
+
+  /* Glows par tier */
+  --glow-commun:    0 0 8px rgba(240,240,240,0.08);
+  --glow-peucommun: 0 0 12px rgba(109,255,109,0.25);
+  --glow-rare:      0 0 14px rgba(109,181,255,0.3);
+  --glow-epique:    0 0 18px rgba(224,64,251,0.35);
+  --glow-fabuleux:  0 0 22px rgba(250,115,255,0.4);
+  --glow-legendaire:0 0 26px rgba(240,208,80,0.5);
+  --glow-shiny:     0 0 16px rgba(0,229,255,0.35);
+
+  --header-height:  64px;
+  --ease-out:       cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+html { scroll-behavior: smooth; }
+
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* Texture noisette */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
   pointer-events: none;
   z-index: 0;
-  opacity: 0.4;
+  mix-blend-mode: overlay;
 }
+
+/* ─── Scrollbar personalisée ──────────────────── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 4px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
 
 /* ════════════════════════════════════════════════
    LOADING
@@ -53,7 +79,7 @@ body::before {
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
 }
 #loading.show { display: flex; }
 
@@ -61,7 +87,8 @@ body::before {
   font-family: 'Press Start 2P', monospace;
   font-size: 10px;
   color: var(--gold);
-  animation: blink 1s steps(1) infinite;
+  letter-spacing: 2px;
+  animation: blink 1.4s steps(1) infinite;
 }
 
 @keyframes blink {
@@ -70,7 +97,7 @@ body::before {
 }
 
 /* ════════════════════════════════════════════════
-   POKEBALL DÉCO
+   POKEBALL DÉCO (améliorée)
 ════════════════════════════════════════════════ */
 .pokeball-deco {
   width: 120px;
@@ -78,8 +105,7 @@ body::before {
   border-radius: 50%;
   border: 4px solid var(--gold-dim);
   position: relative;
-  margin: 0 auto 50px;
-  animation: spinSlow 20s linear infinite;
+  margin: 0 auto;
   box-shadow: 0 0 40px rgba(240,208,80,0.1);
 }
 .pokeball-deco::before {
@@ -99,11 +125,28 @@ body::before {
   border-radius: 50%;
   background: var(--bg);
   border: 4px solid var(--gold-dim);
+  transition: background .3s;
+}
+
+/* Pokeball animée dans le loading */
+#loading .pokeball-deco {
+  animation: spinSlow 2s ease-in-out infinite, pokeballBounce 1.5s ease-in-out infinite;
+}
+#loading .pokeball-deco::after {
+  animation: btnPulse .6s ease-in-out infinite alternate;
 }
 
 @keyframes spinSlow {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  0%,100% { transform: rotate(0deg); }
+  50%      { transform: rotate(360deg); }
+}
+@keyframes pokeballBounce {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+@keyframes btnPulse {
+  from { background: var(--bg); border-color: var(--gold); }
+  to   { background: var(--gold); border-color: var(--gold); }
 }
 
 /* ════════════════════════════════════════════════
@@ -158,7 +201,7 @@ body::before {
   cursor: pointer;
   text-decoration: none;
   position: relative;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition: transform .15s, box-shadow .15s;
   box-shadow: 0 4px 24px rgba(145,70,255,0.4);
 }
 .btn-twitch:hover {
@@ -187,34 +230,79 @@ body::before {
 }
 
 /* ════════════════════════════════════════════════
-   POKÉDEX PAGE
+   POKEBEX PAGE
 ════════════════════════════════════════════════ */
-#page-pokedex { display: none; min-height: 100vh; }
+#page-pokedex { display: none; min-height: 100vh; animation: fadeInPage .4s ease-out; }
+@keyframes fadeInPage { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
 
 /* ─── Header ─────────────────────────────────── */
 .header {
   background: rgba(10,10,18,0.95);
   border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
   position: sticky;
   top: 0;
   z-index: 100;
-  padding: 0 32px;
+  padding: 0 24px;
+  transition: box-shadow .3s;
 }
+.header.scrolled { box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
 .header-inner {
   max-width: 1400px;
   margin: 0 auto;
   display: flex;
   align-items: center;
-  gap: 24px;
-  height: 64px;
+  gap: 12px;
+  height: var(--header-height);
 }
+
+/* Logo/home */
 .header-logo {
   font-family: 'Press Start 2P', monospace;
-  font-size: 9px;
+  font-size: 8px;
   color: var(--gold);
   white-space: nowrap;
+  cursor: pointer;
+  padding: 8px 0;
+  transition: opacity .2s;
 }
+.header-logo:hover { opacity: .8; }
+
+/* Nav */
+.header-nav {
+  display: flex;
+  gap: 4px;
+  margin: 0 auto;
+}
+.nav-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7.5px;
+  letter-spacing: 0.4px;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: color .15s, background .15s, box-shadow .15s;
+  position: relative;
+  white-space: nowrap;
+}
+.nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+.nav-btn.active {
+  color: var(--gold);
+  background: rgba(240,208,80,0.06);
+  box-shadow: 0 0 0 1px rgba(240,208,80,0.15);
+}
+.nav-btn#back-to-me-btn {
+  color: var(--text);
+  border: 1px dashed rgba(255,255,255,0.1);
+  padding: 7px 12px;
+}
+.nav-btn#back-to-me-btn:hover { border-style: solid; border-color: var(--gold-dim); }
+
+/* User */
 .header-user {
   display: flex;
   align-items: center;
@@ -225,36 +313,75 @@ body::before {
   width: 32px; height: 32px;
   border-radius: 50%;
   border: 2px solid var(--gold-dim);
+  transition: border-color .2s, box-shadow .2s;
 }
+.header-avatar:hover { border-color: var(--gold); box-shadow: 0 0 8px var(--gold-dim); }
 .header-username {
   font-family: 'Press Start 2P', monospace;
-  font-size: 8px;
+  font-size: 7.5px;
   color: var(--text);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .btn-logout {
   background: none;
-  border: 1px solid var(--muted);
+  border: 1px solid rgba(255,255,255,0.1);
   color: var(--muted);
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: 4px;
   font-size: 11px;
   cursor: pointer;
-  transition: border-color 0.2s, color 0.2s;
+  transition: all .2s;
+  font-family: 'DM Sans', sans-serif;
 }
-.btn-logout:hover { border-color: var(--text); color: var(--text); }
+.btn-logout:hover { border-color: rgba(255,255,255,0.25); color: var(--text); }
+
+/* ─── Pokédex Toggle ──────────────────────────── */
+.pokedex-view-toggle {
+  display: flex;
+  gap: 8px;
+  padding: 16px 24px 0;
+  justify-content: center;
+}
+
+.toggle-btn {
+  padding: 8px 20px;
+  background: var(--bg2);
+  border: 1px solid rgba(240,208,80,0.2);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.toggle-btn:hover {
+  border-color: rgba(240,208,80,0.4);
+  color: var(--text);
+}
+
+.toggle-btn.active {
+  background: rgba(240,208,80,0.1);
+  border-color: var(--gold);
+  color: var(--gold);
+  box-shadow: 0 0 12px rgba(240,208,80,0.1);
+}
 
 /* ─── Progress ───────────────────────────────── */
 .progress-bar-wrap {
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
-  padding: 16px 32px;
+  padding: 14px 24px;
 }
 .progress-inner {
   max-width: 1400px;
   margin: 0 auto;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
 }
 .progress-track {
   flex: 1;
@@ -262,108 +389,172 @@ body::before {
   background: var(--bg3);
   border-radius: 4px;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255,255,255,0.04);
 }
 .progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--gold), #ffaa00);
   border-radius: 4px;
-  transition: width 0.8s cubic-bezier(0.22,1,0.36,1);
+  transition: width .8s var(--ease-out);
+}
+.progress-fill.shiny-grad {
+  background: linear-gradient(90deg, #00e5ff, var(--gold), #ffaa00);
+  background-size: 200% 100%;
+  animation: shimmerBar 2s linear infinite;
+}
+@keyframes shimmerBar {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 .progress-count {
   font-family: 'Press Start 2P', monospace;
-  font-size: 8px;
+  font-size: 7px;
   color: var(--muted);
   white-space: nowrap;
 }
 
 /* ─── Filters ────────────────────────────────── */
 .filters {
-  padding: 16px 32px;
+  padding: 12px 24px;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: var(--header-height);
+  z-index: 90;
 }
 .filters-inner {
   max-width: 1400px;
   margin: 0 auto;
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
 }
+.filters-inner::-webkit-scrollbar { display: none; }
+
 .filter-btn {
   padding: 6px 14px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.06);
   background: none;
   color: var(--muted);
   font-size: 11px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all .2s;
   font-family: 'DM Sans', sans-serif;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-weight: 500;
 }
-.filter-btn:hover,
-.filter-btn.active                { border-color: var(--gold);       color: var(--gold);       background: rgba(240,208,80,0.06); }
-.filter-btn.f-commun.active      { border-color: var(--commun);     color: var(--commun);     background: rgba(255, 255, 255, 0.08); }
-.filter-btn.f-peucommun.active   { border-color: var(--peucommun);  color: var(--peucommun);  background: rgba(76,175,80,0.08); }
-.filter-btn.f-rare.active        { border-color: var(--rare);       color: var(--rare);       background: rgba(33,150,243,0.08); }
-.filter-btn.f-epique.active      { border-color: var(--epique);     color: var(--epique);     background: rgba(224,64,251,0.08); }
-.filter-btn.f-fabuleux.active  { border-color: var(--fabuleux); color: var(--fabuleux); background: rgba(240,208,80,0.08); }
-.filter-btn.f-legendaire.active  { border-color: var(--legendaire); color: var(--legendaire); background: rgba(240,208,80,0.08); }
-.filter-btn.f-shiny.active       { border-color: var(--shiny);      color: var(--shiny);      background: rgba(0,229,255,0.08); }
+.filter-btn:hover { border-color: rgba(255,255,255,0.15); color: var(--text); }
+.filter-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(240,208,80,0.06); }
+.filter-btn.f-commun.active     { border-color: var(--commun);     color: var(--commun);     background: rgba(255,255,255,0.06); }
+.filter-btn.f-peucommun.active  { border-color: var(--peucommun);  color: var(--peucommun);  background: rgba(76,175,80,0.06); }
+.filter-btn.f-rare.active       { border-color: var(--rare);       color: var(--rare);       background: rgba(33,150,243,0.06); }
+.filter-btn.f-epique.active     { border-color: var(--epique);     color: var(--epique);     background: rgba(224,64,251,0.06); }
+.filter-btn.f-fabuleux.active   { border-color: var(--fabuleux);  color: var(--fabuleux);  background: rgba(250,115,255,0.06); }
+.filter-btn.f-legendaire.active { border-color: var(--legendaire); color: var(--legendaire); background: rgba(240,208,80,0.06); }
+.filter-btn.f-shiny.active      { border-color: var(--shiny);      color: var(--shiny);      background: rgba(0,229,255,0.06); box-shadow: 0 0 10px rgba(0,229,255,0.15); }
 
 .filter-search {
   margin-left: auto;
   background: var(--bg2);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255,255,255,0.06);
   color: var(--text);
   padding: 7px 14px;
-  border-radius: 20px;
+  border-radius: 999px;
   font-size: 13px;
   font-family: 'DM Sans', sans-serif;
   outline: none;
   width: 200px;
-  transition: border-color 0.2s;
+  transition: border-color .2s, box-shadow .2s;
+  flex-shrink: 0;
 }
-.filter-search:focus { border-color: var(--gold-dim); }
+.filter-search:focus { border-color: var(--gold-dim); box-shadow: 0 0 0 3px rgba(240,208,80,0.08); }
 .filter-search::placeholder { color: var(--muted); }
 
 /* ─── Grid ───────────────────────────────────── */
 .pokedex-grid {
   max-width: 1400px;
-  margin: 32px auto;
-  padding: 0 32px 80px;
+  margin: 24px auto;
+  padding: 0 24px 80px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(calc(var(--card-size) + 24px), 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr;
 }
 
 /* ─── Card ───────────────────────────────────── */
 .poke-card {
   background: var(--bg2);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255,255,255,0.04);
   border-radius: var(--radius);
-  padding: 12px 8px 10px;
+  padding: 10px 8px 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   cursor: pointer;
-  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  transition: transform .25s var(--ease-spring), border-color .25s, box-shadow .25s;
   position: relative;
   overflow: hidden;
+  will-change: transform;
+}
+.poke-card::before {
+  content:'';
+  position: absolute;
+  inset: 1px;
+  border-radius: 8px;
+  opacity: 0;
+  transition: opacity .3s;
+  pointer-events: none;
 }
 .poke-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(240,208,80,0.3);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  transform: translateY(-5px) scale(1.02);
+  border-color: rgba(240,208,80,0.2);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.4), 0 0 40px rgba(240,208,80,0.05);
 }
-.poke-card.captured:hover { border-color: var(--gold-dim); }
+.poke-card.captured:hover { border-color: var(--gold-dim); box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 40px rgba(240,208,80,0.08); }
 
+/* Tier-specific glows */
+.poke-card.r-commun:hover         { box-shadow: 0 12px 32px rgba(0,0,0,0.45), var(--glow-commun); }
+.poke-card.r-peuCommun:hover      { box-shadow: 0 12px 32px rgba(0,0,0,0.45), var(--glow-peucommun); border-color: rgba(109,255,109,0.3); }
+.poke-card.r-rare:hover           { box-shadow: 0 12px 32px rgba(0,0,0,0.45), var(--glow-rare); border-color: rgba(109,181,255,0.3); }
+.poke-card.r-epique:hover         { box-shadow: 0 12px 32px rgba(0,0,0,0.45), var(--glow-epique); border-color: rgba(224,64,251,0.35); }
+.poke-card.r-fabuleux:hover       { box-shadow: 0 12px 32px rgba(0,0,0,0.45), var(--glow-fabuleux); border-color: rgba(250,115,255,0.35); }
+.poke-card.r-legendaire:hover     { box-shadow: 0 12px 32px rgba(0,0,0,0.45), var(--glow-legendaire); border-color: rgba(240,208,80,0.35); }
+/* ── Aura Shiny ──────────────────────────────── */
 .poke-card.shiny-card {
-  border-color: rgba(0,229,255,0.25);
-  box-shadow: 0 0 12px rgba(0,229,255,0.1);
+  border: 1px solid rgba(0, 229, 255, 0.3) !important;
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.12);
+  position: relative;
 }
+.poke-card.shiny-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, rgba(0,229,255,0.06) 0%, transparent 55%);
+  pointer-events: none;
+}
+.poke-card.shiny-card:hover { box-shadow: 0 12px 32px rgba(0,0,0,0.45), var(--glow-shiny); border-color: rgba(0,229,255,0.5) !important; }
+
+/* ── Aura Mega ────────────────────────────── */
+.poke-card.mega-card {
+  border: 1px solid rgba(160, 80, 255, 0.3) !important;
+  box-shadow: 0 0 18px rgba(160, 80, 255, 0.12);
+  position: relative;
+}
+.poke-card.mega-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, rgba(160,80,255,0.06) 0%, transparent 55%);
+  pointer-events: none;
+}
+.poke-card.mega-card:hover { box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 16px rgba(160,80,255,0.35); border-color: rgba(160,80,255,0.5) !important; }
 
 /* Sprite */
 .poke-sprite-wrap {
@@ -377,32 +568,24 @@ body::before {
 .poke-sprite {
   width: 100%; height: 100%;
   object-fit: contain;
-  transition: filter 0.3s;
+  transition: filter .3s, transform .3s var(--ease-spring);
+  -webkit-user-drag: none;
+  user-select: none;
 }
 .poke-card:not(.captured) .poke-sprite {
-  filter: brightness(0) opacity(0.25);
+  filter: brightness(0) opacity(0.2);
 }
 .poke-card.captured .poke-sprite {
   filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
-  animation: cardFloat 4s ease-in-out infinite;
 }
+.poke-card:hover .poke-sprite { transform: scale(1.08); }
 
-@keyframes cardFloat {
-  0%,100% { transform: translateY(0); }
-  50%      { transform: translateY(-3px); }
-}
-
-.shiny-badge {
-  position: absolute;
-  top: 2px; right: 2px;
-  font-size: 10px;
-  line-height: 1;
-}
 
 .poke-number {
   font-family: 'Press Start 2P', monospace;
-  font-size: 7px;
+  font-size: 6.5px;
   color: var(--muted);
+  letter-spacing: 1px;
 }
 .poke-name {
   font-size: 11px;
@@ -413,65 +596,110 @@ body::before {
   overflow: hidden;
   text-overflow: ellipsis;
   width: 100%;
+  padding: 0 4px;
 }
-.poke-card:not(.captured) .poke-name { color: var(--muted); }
+.poke-card:not(.captured) .poke-name { color: var(--muted); font-style: italic; }
 
 .poke-date {
   font-size: 9px;
   color: var(--muted);
   text-align: center;
+  letter-spacing: .2px;
+}
+
+/* ─── Badges Mega/Shiny ──────────────────────── */
+.poke-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  min-height: 18px;
+  justify-content: center;
+}
+
+.poke-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.poke-badge.mega-badge {
+  background: rgba(160, 80, 255, 0.25);
+  color: #d8a7ff;
+  border: 1px solid rgba(160, 80, 255, 0.4);
+}
+
+.poke-badge.shiny-badge {
+  background: rgba(0, 229, 255, 0.25);
+  color: #7ffbff;
+  border: 1px solid rgba(0, 229, 255, 0.4);
 }
 
 /* ─── Modal ──────────────────────────────────── */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.8);
-  backdrop-filter: blur(4px);
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(8px) saturate(0.8);
+  -webkit-backdrop-filter: blur(8px) saturate(0.8);
   z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s;
+  transition: opacity .25s ease-out;
+  padding: 24px;
 }
 .modal-overlay.open {
   opacity: 1;
   pointer-events: all;
 }
 .modal {
-  background: var(--bg2);
+  background: linear-gradient(180deg, var(--bg2), var(--bg3));
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 32px;
-  width: 340px;
+  width: 380px;
   max-width: 90vw;
-  transform: scale(0.9);
-  transition: transform 0.2s;
+  max-height: 85vh;
+  overflow-y: auto;
+  transform: scale(0.92) translateY(20px);
+  transition: transform .35s var(--ease-spring);
   position: relative;
+  box-shadow:
+    0 24px 64px rgba(0,0,0,0.6),
+    0 0 0 1px rgba(240,208,80,0.08);
 }
-.modal-overlay.open .modal { transform: scale(1); }
+.modal-overlay.open .modal { transform: scale(1) translateY(0); }
 
 .modal-close {
   position: absolute;
-  top: 16px; right: 16px;
-  background: none;
-  border: none;
+  top: 14px; right: 14px;
+  width: 32px; height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
   color: var(--muted);
-  font-size: 20px;
+  font-size: 16px;
   cursor: pointer;
-  transition: color 0.15s;
+  transition: all .15s;
+  font-family: 'DM Sans', sans-serif;
+  line-height: 1;
 }
-.modal-close:hover { color: var(--text); }
+.modal-close:hover { color: var(--text); background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
 
 .modal-sprite {
   width: 160px; height: 160px;
   object-fit: contain;
   display: block;
-  margin: 0 auto 20px;
+  margin: 0 auto 16px;
   filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6));
-  animation: cardFloat 3s ease-in-out infinite;
 }
 .modal-sprite.silhouette { filter: brightness(0) opacity(0.2); }
 
@@ -480,38 +708,67 @@ body::before {
   font-size: 12px;
   color: var(--gold);
   text-align: center;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  line-height: 1.6;
 }
 .modal-number {
   font-size: 11px;
   color: var(--muted);
   text-align: center;
   margin-bottom: 16px;
+  letter-spacing: 1px;
 }
 .modal-badges {
   display: flex;
   gap: 8px;
   justify-content: center;
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 .modal-badge {
-  padding: 4px 10px;
-  border-radius: 4px;
+  padding: 5px 12px;
+  border-radius: 6px;
   font-size: 10px;
   font-family: 'Press Start 2P', monospace;
+  letter-spacing: .3px;
 }
-.modal-date {
-  text-align: center;
-  font-size: 12px;
-  color: var(--muted);
+/* Modal badge tiers — replaces inline styles in JS */
+.modal-badge-commun     { background: #ffffff22; color: #ffffff; border: 1px solid #ffffff44; }
+.modal-badge-peuCommun  { background: #4caf5022; color: #4caf50; border: 1px solid #4caf5044; }
+.modal-badge-rare       { background: #2196f322; color: #2196f3; border: 1px solid #2196f344; }
+.modal-badge-epique     { background: #e040fb22; color: #e040fb; border: 1px solid #e040fb44; }
+.modal-badge-fabuleux   { background: #fa73ff22; color: #fa73ff; border: 1px solid #fa73ff44; }
+.modal-badge-legendaire { background: #f0d05022; color: #f0d050; border: 1px solid #f0d05044; }
+
+/* Shiny badge in modal */
+.modal-badge-shiny {
+  background: rgba(0,229,255,0.1);
+  color: #00e5ff;
+  border: 1px solid rgba(0,229,255,0.3);
 }
+
+/* Mega badge in modal */
+.modal-badge-mega {
+  background: rgba(160,80,255,0.1);
+  color: #d8a7ff;
+  border: 1px solid rgba(160,80,255,0.3);
+}
+
+/* Card keyboard focus */
+.poke-card:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  transform: translateY(-5px) scale(1.02);
+}
+
+.modal-date { text-align: center; font-size: 12px; color: var(--muted); }
 .modal-not-captured {
   text-align: center;
   font-family: 'Press Start 2P', monospace;
   font-size: 8px;
   color: var(--muted);
-  line-height: 2;
+  line-height: 2.5;
+  padding: 8px 0;
 }
 
 /* ─── Responsive ─────────────────────────────── */
@@ -525,22 +782,11 @@ body::before {
 /* ─── Nav ────────────────────────────────────── */
 .header-nav {
   display: flex;
-  gap: 4px;
-  margin: 0 auto; /* centre la nav */
+  gap: 2px;
+  margin: 0 auto;
+  flex: 1;
+  justify-content: center;
 }
-.nav-btn {
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-family: 'Press Start 2P', monospace;
-  font-size: 8px;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: color 0.15s, background 0.15s;
-}
-.nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
-.nav-btn.active { color: var(--gold); background: rgba(240,208,80,0.08); }
 
 /* ─── Stats page ─────────────────────────────── */
 .stats-page {
@@ -557,11 +803,21 @@ body::before {
   border-radius: var(--radius);
   padding: 24px;
 }
+.ranking-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.ranking-header .ranking-title { margin-bottom: 0; }
 .ranking-title {
   font-family: 'Press Start 2P', monospace;
   font-size: 9px;
   color: var(--gold);
   margin-bottom: 20px;
+  line-height: 1.8;
 }
 .ranking-row {
   display: flex;
@@ -569,6 +825,8 @@ body::before {
   gap: 12px;
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
+  transition: background .15s, border-color .15s;
+  border-radius: 6px;
 }
 .ranking-row:last-child { border-bottom: none; }
 .rank-pos {
@@ -598,18 +856,12 @@ body::before {
   flex-shrink: 0;
 }
 
-
 /* ════════════════════════════════════════════════
-   STATS — PODIUM TWITCH
+   STATS
 ════════════════════════════════════════════════ */
 
-.ranking-section {
-  overflow: hidden;
-}
-
-.ranking-list {
-  min-height: 260px;
-}
+.ranking-section { overflow: hidden; }
+.ranking-list { min-height: 260px; }
 
 .stats-loading,
 .stats-empty {
@@ -641,7 +893,9 @@ body::before {
   text-align: center;
   position: relative;
   box-shadow: 0 12px 32px rgba(0,0,0,0.36);
+  transition: transform .2s var(--ease-spring), box-shadow .2s;
 }
+.podium-card:hover { transform: translateY(-3px); }
 
 .podium-1 {
   width: 158px;
@@ -651,20 +905,20 @@ body::before {
   border-color: rgba(240,208,80,0.62);
   box-shadow: 0 0 34px rgba(240,208,80,0.18), 0 14px 34px rgba(0,0,0,0.42);
 }
+.podium-1:hover { transform: translateY(-13px); }
 
-.podium-2 {
-  border-color: rgba(192,192,192,0.4);
-}
-
-.podium-3 {
-  border-color: rgba(205,127,50,0.4);
-}
+.podium-2 { border-color: rgba(192,192,192,0.4); }
+.podium-3 { border-color: rgba(205,127,50,0.4); }
 
 .podium-rank {
   font-size: 22px;
   line-height: 1;
   margin-bottom: 12px;
+  font-family: 'Press Start 2P', monospace;
+  color: var(--gold);
 }
+.podium-2 .podium-rank { color: #c0c0c0; }
+.podium-3 .podium-rank { color: #cd7f32; }
 
 .podium-avatar {
   width: 62px;
@@ -681,14 +935,11 @@ body::before {
   font-family: 'Press Start 2P', monospace;
   font-size: 18px;
 }
-
 .podium-1 .podium-avatar {
-  width: 78px;
-  height: 78px;
+  width: 78px; height: 78px;
   border-color: var(--gold);
   box-shadow: 0 0 22px rgba(240,208,80,0.24);
 }
-
 .podium-name {
   font-size: 13px;
   font-weight: 800;
@@ -697,39 +948,32 @@ body::before {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .podium-score {
   font-family: 'Press Start 2P', monospace;
   font-size: 8px;
   color: var(--gold);
   margin-top: 10px;
 }
-
 .podium-percent {
   font-size: 11px;
   color: var(--muted);
   margin-top: 6px;
 }
 
-.ranking-rest {
-  margin-top: 10px;
-}
-
+.ranking-rest { margin-top: 10px; }
 .ranking-rest .ranking-row {
   background: rgba(255,255,255,0.025);
   border: 1px solid rgba(240,208,80,0.08);
   border-radius: 10px;
   margin-bottom: 8px;
   padding: 10px 12px;
+  transition: border-color .15s, background .15s;
 }
-
-.ranking-rest .ranking-row:last-child {
-  margin-bottom: 0;
-}
+.ranking-rest .ranking-row:last-child { margin-bottom: 0; }
+.ranking-rest .ranking-row:hover { background: rgba(255,255,255,0.04); }
 
 .rank-avatar {
-  width: 28px;
-  height: 28px;
+  width: 28px; height: 28px;
   border-radius: 50%;
   border: 1px solid var(--border);
   flex-shrink: 0;
@@ -744,44 +988,17 @@ body::before {
 }
 
 @media (max-width: 720px) {
-  .stats-page {
-    grid-template-columns: 1fr;
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-
-  .podium {
-    gap: 8px;
-  }
-
-  .podium-card {
-    width: 30%;
-    min-height: 178px;
-    padding: 12px 8px;
-  }
-
-  .podium-1 {
-    width: 34%;
-    min-height: 208px;
-  }
-
-  .podium-avatar {
-    width: 52px;
-    height: 52px;
-  }
-
-  .podium-1 .podium-avatar {
-    width: 66px;
-    height: 66px;
-  }
-
-  .podium-name {
-    font-size: 11px;
-  }
+  .stats-page { grid-template-columns: 1fr; padding-left: 16px; padding-right: 16px; }
+  .podium { gap: 8px; }
+  .podium-card { width: 30%; min-height: 178px; padding: 12px 8px; }
+  .podium-1 { width: 34%; min-height: 208px; }
+  .podium-avatar { width: 52px; height: 52px; }
+  .podium-1 .podium-avatar { width: 66px; height: 66px; }
+  .podium-name { font-size: 11px; }
 }
 
 /* ════════════════════════════════════════════════
-   ADMIN 
+   ADMIN
 ════════════════════════════════════════════════ */
 
 .admin-page {
@@ -793,7 +1010,7 @@ body::before {
 .admin-search {
   width: 100%;
   background: var(--bg2);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255,255,255,0.06);
   color: var(--text);
   padding: 12px 16px;
   border-radius: var(--radius);
@@ -801,21 +1018,17 @@ body::before {
   font-family: 'DM Sans', sans-serif;
   outline: none;
   margin-bottom: 16px;
-}
+  transition: border-color .2s, box-shadow .2s;
 
-.admin-search:focus {
-  border-color: var(--gold-dim);
 }
+.admin-search:focus { border-color: var(--gold-dim); box-shadow: 0 0 0 3px rgba(240,208,80,0.06); }
 
 .admin-current {
   color: var(--muted);
   font-size: 13px;
   margin-bottom: 16px;
 }
-
-.admin-current strong {
-  color: var(--gold);
-}
+.admin-current strong { color: var(--gold); }
 
 .admin-list {
   display: flex;
@@ -831,28 +1044,22 @@ body::before {
   align-items: center;
   background: var(--bg2);
   border: 1px solid var(--border);
+hyphens: auto;
   color: var(--text);
   border-radius: var(--radius);
   padding: 12px 14px;
   cursor: pointer;
   text-align: left;
+  transition: all .15s;
 }
-
 .admin-user-row:hover {
   border-color: var(--gold-dim);
   background: rgba(240,208,80,0.06);
+  transform: translateX(4px);
 }
 
-.admin-user-name {
-  font-weight: 700;
-}
-
-.admin-user-login {
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
+.admin-user-name { font-weight: 700; }
+.admin-user-login { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
 .admin-user-score {
   font-family: 'Press Start 2P', monospace;
   font-size: 8px;
@@ -866,7 +1073,6 @@ body::before {
   gap: 12px;
   margin-bottom: 16px;
 }
-
 .admin-reset-btn {
   background: rgba(240,208,80,0.08);
   border: 1px solid var(--gold-dim);
@@ -878,18 +1084,12 @@ body::before {
   font-family: 'DM Sans', sans-serif;
   white-space: nowrap;
 }
-
-.admin-reset-btn:hover {
-  background: rgba(240,208,80,0.14);
-}
-
+.admin-reset-btn:hover { background: rgba(240,208,80,0.14); }
 
 /* ════════════════════════════════════════════════
    GÉNÉRATIONS — progression, filtres, sections
 ════════════════════════════════════════════════ */
-.progress-inner {
-  position: relative;
-}
+.progress-inner { position: relative; }
 .progress-toggle {
   width: auto;
   height: 30px;
@@ -907,7 +1107,8 @@ body::before {
   letter-spacing: 0.02em;
   line-height: 1;
   cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
+  transition: border-color .2s, background .2s;
+  flex-shrink: 0;
 }
 .progress-toggle:hover {
   border-color: rgba(240,208,80,0.45);
@@ -919,11 +1120,9 @@ body::before {
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: rotate(45deg) translateY(-1px);
-  transition: transform 0.18s ease;
+  transition: transform .18s ease;
 }
-.progress-toggle.open i {
-  transform: rotate(225deg) translateY(-1px);
-}
+.progress-toggle.open i { transform: rotate(225deg) translateY(-1px); }
 .generation-progress-panel {
   max-width: 1400px;
   margin: 12px auto 0;
@@ -946,13 +1145,13 @@ body::before {
 }
 .generation-progress-head span {
   font-family: 'Press Start 2P', monospace;
-  font-size: 8px;
+  font-size: 7.5px;
   color: var(--gold);
   font-weight: 400;
 }
 .generation-progress-head strong {
   font-family: 'Press Start 2P', monospace;
-  font-size: 8px;
+  font-size: 7px;
   color: var(--muted);
   font-weight: 400;
   white-space: nowrap;
@@ -968,12 +1167,12 @@ body::before {
   height: 100%;
   background: linear-gradient(90deg, var(--gold), #ffaa00);
   border-radius: 999px;
-  transition: width 0.8s cubic-bezier(0.22,1,0.36,1);
+  transition: width .8s var(--ease-out);
 }
 .generation-filters {
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
-  padding: 12px 32px;
+  padding: 12px 24px;
 }
 .generation-filters-inner {
   max-width: 1400px;
@@ -991,13 +1190,14 @@ body::before {
 .gen-filter-btn {
   padding: 7px 14px;
   border-radius: 999px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255,255,255,0.06);
   background: none;
   color: var(--muted);
   font-size: 11px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all .15s;
   font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
 }
 .gen-filter-btn:hover,
 .gen-filter-btn.active {
@@ -1005,11 +1205,10 @@ body::before {
   color: var(--gold);
   background: rgba(240,208,80,0.08);
 }
-.pokedex-grid {
-  display: block;
-}
+.pokedex-grid { display: block; }
 .generation-section {
   margin-bottom: 42px;
+  animation: fadeInSection .5s ease-out;
 }
 .generation-title {
   display: flex;
@@ -1026,6 +1225,7 @@ body::before {
   flex: 1;
   order: 2;
   background: linear-gradient(90deg, rgba(240,208,80,0.30), transparent);
+  min-width: 40px;
 }
 .generation-title-main {
   order: 1;
@@ -1037,16 +1237,29 @@ body::before {
   border: 1px solid rgba(240,208,80,0.18);
   border-radius: 999px;
   background: rgba(240,208,80,0.055);
+  transition: border-color .2s, background .2s, box-shadow .2s;
+}
+.generation-title-main:hover {
+  border-color: rgba(240,208,80,0.35);
+  background: rgba(240,208,80,0.08);
+  box-shadow: 0 0 12px rgba(240,208,80,0.08);
 }
 .generation-title-main span {
   font-family: 'Press Start 2P', monospace;
-  font-size: 8px;
+  font-size: 7.5px;
   color: var(--gold);
 }
+
 .generation-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(calc(var(--card-size) + 24px), 1fr));
   gap: 12px;
+}
+
+/* Fade-in anim for newly rendered sections */
+@keyframes fadedInSection {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 720px) {
@@ -1059,12 +1272,9 @@ body::before {
   .generation-grid { gap: 8px; }
 }
 
-
-
 /* ════════════════════════════════════════════════
    STATS DASHBOARD
 ════════════════════════════════════════════════ */
-
 .stats-dashboard {
   max-width: 1100px;
   margin: 40px auto;
@@ -1089,6 +1299,11 @@ body::before {
   text-align: center;
   position: relative;
   overflow: hidden;
+  transition: border-color .2s, box-shadow .2s;
+}
+.sdash-kpi:hover {
+  border-color: rgba(240,208,80,0.25);
+  box-shadow: 0 0 20px rgba(240,208,80,0.05);
 }
 
 .sdash-kpi::before {
@@ -1102,7 +1317,7 @@ body::before {
 
 .sdash-kpi-num {
   font-family: 'Press Start 2P', monospace;
-  font-size: clamp(16px, 2.5vw, 26px);
+  font-size: clamp(16px, 2.5vw, 28px);
   color: var(--gold);
   line-height: 1;
   margin-bottom: 12px;
@@ -1111,6 +1326,7 @@ body::before {
 .sdash-kpi-label {
   font-size: 12px;
   color: var(--muted);
+  font-weight: 500;
 }
 
 .shiny-color { color: var(--shiny) !important; }
@@ -1121,22 +1337,18 @@ body::before {
   grid-template-columns: 1fr 1fr;
   gap: 20px;
 }
-.sdash-row-1 {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 20px;
-}
+
 /* ── Panel ───────────────────────────────────── */
 .sdash-panel {
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 22px 20px 18px;
+  transition: border-color .2s;
 }
+.sdash-panel:hover { border-color: rgba(240,208,80,0.2); }
 
-.sdash-panel-full {
-  width: 100%;
-}
+.sdash-panel-full { width: 100%; }
 
 .sdash-panel-title {
   font-family: 'Press Start 2P', monospace;
@@ -1144,6 +1356,7 @@ body::before {
   color: var(--gold);
   margin-bottom: 20px;
   letter-spacing: 0.03em;
+  line-height: 1.8;
 }
 
 /* ── Bar shared ──────────────────────────────── */
@@ -1158,7 +1371,7 @@ body::before {
 .sdash-bar-fill {
   height: 100%;
   border-radius: 999px;
-  transition: width 0.7s cubic-bezier(0.22,1,0.36,1);
+  transition: width .7s var(--ease-out);
 }
 
 .sdash-bar-gold {
@@ -1180,9 +1393,7 @@ body::before {
   margin-bottom: 20px;
 }
 
-.sdash-panel-header .sdash-panel-title {
-  margin-bottom: 0;
-}
+.sdash-panel-header .sdash-panel-title { margin-bottom: 0; }
 
 .sdash-gen-tabs {
   display: flex;
@@ -1202,19 +1413,10 @@ body::before {
   font-family: 'Press Start 2P', monospace;
   font-size: 7px;
   cursor: pointer;
-  transition: color 0.15s, background 0.15s;
+  transition: color .15s, background .15s;
 }
-
-.sdash-gen-tab:hover {
-  color: var(--text);
-  background: rgba(255,255,255,0.04);
-}
-
-.sdash-gen-tab.active {
-  color: var(--gold);
-  background: rgba(240,208,80,0.1);
-}
-
+.sdash-gen-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.sdash-gen-tab.active { color: var(--gold); background: rgba(240,208,80,0.1); }
 
 .sdash-rarity-list {
   display: flex;
@@ -1228,16 +1430,11 @@ body::before {
   align-items: center;
   margin-bottom: 4px;
 }
-
 .sdash-rarity-name {
   font-family: 'Press Start 2P', monospace;
   font-size: 7px;
 }
-
-.sdash-rarity-count {
-  font-size: 11px;
-  color: var(--muted);
-}
+.sdash-rarity-count { font-size: 11px; color: var(--muted); }
 
 /* ── Top lists ───────────────────────────────── */
 .sdash-top-list {
@@ -1245,7 +1442,6 @@ body::before {
   flex-direction: column;
   gap: 8px;
 }
-
 .sdash-top-row {
   display: flex;
   align-items: center;
@@ -1254,7 +1450,9 @@ body::before {
   border-radius: 6px;
   background: rgba(255,255,255,0.025);
   min-width: 0;
+  transition: background .15s;
 }
+.sdash-top-row:hover { background: rgba(255,255,255,0.045); }
 
 .sdash-top-rank {
   font-family: 'Press Start 2P', monospace;
@@ -1264,15 +1462,12 @@ body::before {
   flex-shrink: 0;
   text-align: right;
 }
-
 .sdash-top-sprite {
-  width: 28px;
-  height: 28px;
+  width: 28px; height: 28px;
   object-fit: contain;
   flex-shrink: 0;
   filter: drop-shadow(0 1px 4px rgba(0,0,0,0.5));
 }
-
 .sdash-top-name {
   font-size: 12px;
   font-weight: 600;
@@ -1282,7 +1477,6 @@ body::before {
   min-width: 60px;
   flex-shrink: 0;
 }
-
 .sdash-top-sub {
   font-size: 11px;
   color: var(--muted);
@@ -1291,27 +1485,12 @@ body::before {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-.sdash-top-sub strong {
-  color: var(--text);
-}
-
+.sdash-top-sub strong { color: var(--text); }
 .sdash-top-val {
   font-family: 'Press Start 2P', monospace;
   font-size: 8px;
   color: var(--gold);
   flex-shrink: 0;
-}
-
-.sdash-top-date {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.sdash-shiny-tag {
-  font-size: 10px;
-  margin-left: 4px;
 }
 
 /* ── Gen bars ────────────────────────────────── */
@@ -1320,7 +1499,6 @@ body::before {
   flex-direction: column;
   gap: 16px;
 }
-
 .sdash-gen-label {
   display: flex;
   justify-content: space-between;
@@ -1329,18 +1507,12 @@ body::before {
   font-size: 13px;
   color: var(--text);
 }
-
 .sdash-gen-label strong {
   font-family: 'Press Start 2P', monospace;
   font-size: 8px;
   color: var(--gold);
 }
-
-.sdash-gen-pct {
-  color: var(--muted);
-  font-weight: 400;
-}
-
+.sdash-gen-pct { color: var(--muted); font-weight: 400; }
 
 /* ════════════════════════════════════════════════
    POKÉDEX COMMUNAUTÉ
@@ -1353,15 +1525,13 @@ body::before {
   font-style: italic;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
-  width: 100%;
+  max-width: 100%;
 }
 
 .community-modal-first {
   text-align: center;
   margin-top: 8px;
 }
-
 .community-modal-label {
   font-size: 10px;
   color: var(--muted);
@@ -1369,7 +1539,6 @@ body::before {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-
 .community-modal-trainer {
   font-family: 'Press Start 2P', monospace;
   font-size: 10px;
@@ -1378,26 +1547,49 @@ body::before {
 }
 
 @media (max-width: 860px) {
-  .sdash-kpi-row {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .sdash-row-2 {
-    grid-template-columns: 1fr;
-  }
+  .sdash-kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .sdash-row-2   { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 540px) {
-  .stats-dashboard {
-    padding: 0 16px 60px;
-    margin-top: 24px;
-  }
-  .sdash-kpi-row {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-  }
-  .sdash-kpi {
-    padding: 16px 12px;
-  }
+  .stats-dashboard { padding: 0 16px 60px; margin-top: 24px; }
+  .sdash-kpi-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .sdash-kpi { padding: 16px 12px; }
+}
+
+/* ╒══════════════════════════════════════════════
+   Rank nav (évolution depuis la première version)
+══════════════════════════════════════════════ */
+
+.rank-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px;
+}
+
+.rank-tab-btn {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  cursor: pointer;
+  transition: color .15s, background .15s;
+  white-space: nowrap;
+}
+.rank-tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.rank-tab-btn.active { color: var(--gold); background: rgba(240,208,80,0.1); }
+
+@media (max-width: 720px) {
+  .rank-tab { width: 100%; justify-content: center; }
+  .rank-tab-btn { flex: 1; padding-left: 8px; padding-right: 8px; }
+  .stats-section-head { align-items: flex-start; flex-direction: column; }
 }
 
 .stats-section-head {
@@ -1407,86 +1599,124 @@ body::before {
   gap: 14px;
   margin-bottom: 20px;
 }
-
-.stats-section-head .ranking-title {
-  margin-bottom: 0;
-}
-
-.rank-tabs {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(255,255,255,0.025);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 4px;
-}
-
-.rank-tab-btn {
-  background: transparent;
-  border: 0;
-  color: var(--muted);
-  border-radius: 999px;
-  padding: 7px 12px;
-  font-family: 'Press Start 2P', monospace;
-  font-size: 7px;
-  cursor: pointer;
-  transition: color 0.15s, background 0.15s;
-}
-
-.rank-tab-btn:hover {
-  color: var(--text);
-  background: rgba(255,255,255,0.04);
-}
-
-.rank-tab-btn.active {
-  color: var(--gold);
-  background: rgba(240,208,80,0.1);
-}
-
-@media (max-width: 720px) {
-  .stats-section-head {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .rank-tabs {
-    width: 100%;
-  }
-
-  .rank-tab-btn {
-    flex: 1;
-    padding-left: 8px;
-    padding-right: 8px;
-  }
-}
+.stats-section-head .ranking-title { margin-bottom: 0; }
 
 /* ════════════════════════════════════════════════
-   STATS — LIENS VERS POKÉDEX
+   STATS — LIENS ET LIENS D'ACCESSIBILITÉ
 ════════════════════════════════════════════════ */
 
-.stats-user-link {
-  cursor: pointer;
-}
-
-.stats-user-link:hover {
-  color: var(--text);
-  text-decoration: none;
-}
-
-.podium-card.clickable {
-  cursor: pointer;
-}
-
+.stats-user-link { cursor: pointer; color: inherit; transition: color .15s; }
+.stats-user-link:hover { color: var(--text); text-decoration: none; }
+.podium-card.clickable { cursor: pointer; }
 .podium-card.clickable:hover {
-  box-shadow: 0 0 40px rgba(240,208,80,0.2);
+  box-shadow: 0 0 40px rgba(240,208,80,0.2), 0 12px 32px rgba(0,0,0,0.36);
 }
-
-.ranking-row.clickable {
-  cursor: pointer;
-}
-
+.ranking-row.clickable { cursor: pointer; }
 .ranking-row.clickable:hover {
   border-color: var(--gold-dim);
   background: rgba(240,208,80,0.06);
+}
+
+/* ════════════════════════════════════════════════
+   RESPONSIVE GLOBAL
+════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  :root { --card-size: 80px; }
+  .header { padding: 0 12px; height: 56px; }
+  .header-inner { height: 56px; }
+  .header-username { display: none; }
+  .nav-btn { padding: 6px 10px; font-size: 7px; letter-spacing: 0.2px; }
+  .filters { padding: 10px 16px; top: 56px; }
+  .progress-bar-wrap { padding: 12px 16px; }
+  .generation-filters { padding: 10px 16px; }
+  .pokedex-grid { padding: 0 16px 60px; }
+  }
+
+@media (max-width: 530px) {
+  .podium-card { width: 28%; min-width: 90px; padding: 10px 6px; }
+  .podium-1 { width: 36%; min-width: 110px; }
+  .podium-rank { font-size: 18px; }
+  .podium-name { font-size: 10px; }
+  .podium-score { font-size: 7px; }
+  .ranking-rest .ranking-row { padding: 8px; gap: 8px; }
+  .rank-avatar { width: 24px; height: 24px; }
+  .rank-name { font-size: 12px; }
+
+  .sdash-panel { padding: 16px 14px; }
+  .sdash-top-name { min-width: 40px; font-size: 11px; }
+  .sdash-top-sub { display: none; }
+  .sdash-gen-tab { font-size: 6.5px; padding: 4px 8px; }
+}
+
+/* ════════════════════════════════════════════════
+   UTILITIES (empty states, skeleton, tier colors)
+════════════════════════════════════════════════ */
+
+.grid-empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--muted);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  padding: 60px 0;
+  line-height: 2.5;
+}
+
+.grid-skeleton {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--muted);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  padding: 60px 0;
+  line-height: 2.5;
+}
+
+/* Couleurs de tier remplaçant les styles inline */
+.tier-commun     { color: var(--commun);     }
+.tier-peuCommun  { color: var(--peucommun);  }
+.tier-rare       { color: var(--rare);       }
+.tier-epique     { color: var(--epique);     }
+.tier-fabuleux   { color: var(--fabuleux);   }
+.tier-legendaire { color: var(--legendaire); }
+
+.tier-bg-commun     { background-color: var(--commun);     }
+.tier-bg-peuCommun  { background-color: var(--peucommun);  }
+.tier-bg-rare       { background-color: var(--rare);       }
+.tier-bg-epique     { background-color: var(--epique);     }
+.tier-bg-fabuleux   { background-color: var(--fabuleux);   }
+.tier-bg-legendaire { background-color: var(--legendaire); }
+
+/* ════════════════════════════════════════════════
+   KEY STONE ICON
+════════════════════════════════════════════════ */
+
+.key-stone-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 4px;
+  margin-bottom: -2px;
+  filter: drop-shadow(0 0 4px rgba(240,208,80,0.3));
+  transition: filter .15s, transform .15s;
+}
+
+.toggle-btn:hover .key-stone-icon {
+  filter: drop-shadow(0 0 8px rgba(240,208,80,0.6));
+  transform: scale(1.1);
+}
+
+/* prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  body::before {
+    display: none;
+  }
 }
