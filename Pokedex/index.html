@@ -39,11 +39,11 @@
         <nav class="header-nav">
           <button class="nav-btn" id="back-to-me-btn" style="display:none"> ← Mon Pokédex </button>
           <button class="nav-btn active" data-page="pokedex">Pokédex</button>
-          <button class="nav-btn" data-page="community">Communauté</button>
+          <button class="nav-btn" data-page="communauté">Communauté</button>
           <button class="nav-btn" data-page="stats">Statistiques</button>
-          <button class="nav-btn" data-page="ranking">Classements</button>
+          <button class="nav-btn" data-page="classements">Classements</button>
 
-          <button class="nav-btn" data-page="admin">Dresseurs</button>
+          <button class="nav-btn" data-page="dresseurs">Dresseurs</button>
         </nav>
         <div class="header-user">
           <img class="header-avatar" id="user-avatar" src="" alt="">
@@ -55,10 +55,14 @@
 
     <!-- Vue Pokédex -->
     <div id="view-pokedex">
+      <div class="pokedex-view-toggle">
+        <button class="toggle-btn active" id="pokédex-toggle-normal" data-toggle="normal">Pokédex</button>
+        <button class="toggle-btn" id="pokédex-toggle-mega" data-toggle="mega">Megadex <img src="https://archives.bulbagarden.net/media/upload/c/cd/Mega_Evolution_key_stone_icon.png" alt="Keystone" class="keystone-icon" style="display:inline-block; width:16px; height:16px; margin-left:4px; vertical-align:middle;"></button>
+      </div>
       <div class="progress-bar-wrap">
         <div class="progress-inner">
           <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
-          <span class="progress-count" id="progress-count">0 / 251</span>
+          <span class="progress-count" id="progress-count">0 / 386</span>
           <button class="progress-toggle" id="progress-toggle" type="button" aria-expanded="false" title="Afficher le détail par génération"><span>Détails</span><i></i></button>
         </div>
         <div class="generation-progress-panel" id="generation-progress-panel" style="display:none"></div>
@@ -192,7 +196,7 @@
       <div class="stats-page">
         <div class="ranking-section">
           <div class="ranking-header">
-            <h2 class="ranking-title">🏆 Complétion</h2>
+            <h2 class="ranking-title">Complétion</h2>
             <div class="rank-tab" aria-label="Filtrer le classement par génération">
               <button class="rank-tab-btn active" data-stats-gen="all">Total</button>
               <button class="rank-tab-btn" data-stats-gen="1">Gen 1</button>
@@ -203,7 +207,7 @@
         </div>
         <div class="ranking-section">
           <div class="ranking-header">
-            <h2 class="ranking-title">🥇 Meilleurs dresseurs de la communauté</h2>
+            <h2 class="ranking-title">Meilleurs dresseurs</h2>
             <div class="rank-tab" aria-label="Filtrer les meilleurs dresseurs par génération">
               <button class="rank-tab-btn active" data-first-gen="all">Total</button>
               <button class="rank-tab-btn" data-first-gen="1">Gen 1</button>
