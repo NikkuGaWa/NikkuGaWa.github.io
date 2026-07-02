@@ -14,6 +14,38 @@ const CONFIG = {
 };
 
 const EXCLUDED_USER_NAMES = ['nikkugawa',"nikku_bot_"];
+
+const MEGA_EVOLUTIONS = {
+  3: { slug: 'venusaur-mega' },
+  6: [{ slug: 'charizard-mega-x' }, { slug: 'charizard-mega-y' }],
+  9: { slug: 'blastoise-mega' },
+  15: { slug: 'beedrill-mega' },
+  18: { slug: 'pidgeot-mega' },
+  26: [{ slug: 'raichu-mega-x' }, { slug: 'raichu-mega-y' }],
+  36: { slug: 'clefable-mega' },
+  65: { slug: 'alakazam-mega' },
+  71: { slug: 'victreebel-mega' },
+  80: { slug: 'slowbro-mega' },
+  94: { slug: 'gengar-mega' },
+  115: { slug: 'kangaskhan-mega' },
+  121: { slug: 'starmie-mega' },
+  127: { slug: 'pinsir-mega' },
+  130: { slug: 'gyarados-mega' },
+  142: { slug: 'aerodactyl-mega' },
+  149: { slug: 'dragonite-mega' },
+  150: [{ slug: 'mewtwo-mega-x' }, { slug: 'mewtwo-mega-y' }],
+  154: { slug: 'meganium-mega' },
+  160: { slug: 'feraligatr-mega' },
+  181: { slug: 'ampharos-mega' },
+  208: { slug: 'steelix-mega' },
+  212: { slug: 'scizor-mega' },
+  214: { slug: 'heracross-mega' },
+  229: { slug: 'houndoom-mega' },
+  248: { slug: 'tyranitar-mega' },
+};
+
+const megaSpriteCache = {};
+
 /* ════════════════════════════════════════════════
    TIERS
 ════════════════════════════════════════════════ */
@@ -63,6 +95,8 @@ TIERS_DEF.fabuleux.push(
 TIERS_DEF.legendaire.push(
   243,244,245,249,250,
 );
+
+
 
 for (const [tier, ids] of Object.entries(TIERS_DEF)) {
   for (const id of ids) POKEMON_TIERS[id] = tier;
@@ -119,7 +153,115 @@ let state = {
   communityFilter: 'all',
   communityGenFilter: 'all',
   communitySearch: '',
+  pokédexMode: 'normal', // 'normal' ou 'mega'
 };
+
+let _modalLastFocus = null;
+
+/* ════════════════════════════════════════════════
+   DEEP-LINKING (URL HASH)
+════════════════════════════════════════════════ */
+const DEEP_LINK_KEYS = ['view', 'filter', 'gen', 'search', 'cf', 'cg', 'cs'];
+
+function getUrlState() {
+  const hash = window.location.hash.replace('#', '');
+  if (!hash) return {};
+  const parts = hash.split('?');
+  const view = parts[0] || 'pokedex';
+  const params = new URLSearchParams(parts[1] || '');
+  return {
+    view,
+    filter: params.get('filter') || 'all',
+    gen: params.get('gen') || 'all',
+    search: params.get('search') || '',
+    communityFilter: params.get('cf') || 'all',
+    communityGen: params.get('cg') || 'all',
+    communitySearch: params.get('cs') || '',
+  };
+}
+
+function updateUrlState() {
+  const activeView = document.querySelector('.nav-btn.active')?.dataset.page || 'pokedex';
+  const params = new URLSearchParams();
+
+  if (state.activeFilter !== 'all') params.set('filter', state.activeFilter);
+  if (state.activeGenFilter !== 'all') params.set('gen', state.activeGenFilter);
+  if (state.searchQuery) params.set('search', state.searchQuery);
+  if (state.communityFilter !== 'all') params.set('cf', state.communityFilter);
+  if (state.communityGenFilter !== 'all') params.set('cg', state.communityGenFilter);
+  if (state.communitySearch) params.set('cs', state.communitySearch);
+
+  const query = params.toString();
+  const hash = activeView + (query ? '?' + query : '');
+  history.replaceState(null, '', '#' + hash);
+}
+
+function applyUrlState() {
+  const urlState = getUrlState();
+  if (!urlState.view) return;
+
+  // Apply state values
+  if (urlState.filter) state.activeFilter = urlState.filter;
+  if (urlState.gen) state.activeGenFilter = urlState.gen;
+  if (urlState.search) state.searchQuery = urlState.search;
+  if (urlState.communityFilter) state.communityFilter = urlState.communityFilter;
+  if (urlState.communityGen) state.communityGenFilter = urlState.communityGen;
+  if (urlState.communitySearch) state.communitySearch = urlState.communitySearch;
+
+  // Set active nav button
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.page === urlState.view);
+  });
+
+  // Set filter buttons
+  document.querySelectorAll('#view-pokedex .filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.filter === state.activeFilter);
+  });
+  document.querySelectorAll('#view-pokedex .gen-filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.genFilter === state.activeGenFilter);
+  });
+
+  // Set community filters
+  document.querySelectorAll('#view-community .filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.communityFilter === state.communityFilter);
+  });
+  document.querySelectorAll('#view-community .gen-filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.communityGen === state.communityGenFilter);
+  });
+
+  // Set search inputs
+  if (state.searchQuery) {
+    const el = document.getElementById('filter-search');
+    if (el) el.value = state.searchQuery;
+  }
+  if (state.communitySearch) {
+    const el = document.getElementById('community-filter-search');
+    if (el) el.value = state.communitySearch;
+  }
+
+  // Switch to the page
+  switchToPage(urlState.view);
+}
+
+function switchToPage(page) {
+  document.getElementById('view-pokedex').style.display   = page === 'pokedex'    ? 'block' : 'none';
+  document.getElementById('view-community').style.display = page === 'communauté'  ? 'block' : 'none';
+  document.getElementById('view-stats').style.display     = page === 'stats'      ? 'block' : 'none';
+  document.getElementById('view-rank').style.display      = page === 'classements'    ? 'block' : 'none';
+  document.getElementById('view-admin').style.display     = page === 'dresseurs'      ? 'block' : 'none';
+
+  if (page === 'classements')   loadStats(true);
+  if (page === 'dresseurs')     loadAdminUsers(true);
+  if (page === 'stats')     loadStatsDashboard(true);
+  if (page === 'communauté') loadCommunityPokedex();
+}
+
+/* ════════════════════════════════════════════════
+   PREFERS-REDUCED-MOTION
+════════════════════════════════════════════════ */
+if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  document.documentElement.classList.add('reduced-motion');
+}
 
 /* ════════════════════════════════════════════════
    TWITCH OAUTH
@@ -250,24 +392,15 @@ async function fetchAllSupabaseRows(baseUrl, baseHeaders) {
    NOMS POKÉMON
 ════════════════════════════════════════════════ */
 async function fetchAllNames() {
-  const batchSize = 20;
-  const promises  = [];
-
-  for (let i = 1; i <= POKEDEX_TOTAL; i++) {
-    promises.push(
-      fetch(`https://pokeapi.co/api/v2/pokemon-species/${i}/`)
-        .then(r => r.json())
-        .then(d => {
-          const fr = d.names.find(n => n.language.name === 'fr');
-          const en = d.names.find(n => n.language.name === 'en');
-          state.names[i] = fr ? fr.name : (en ? en.name : `#${i}`);
-        })
-        .catch(() => { state.names[i] = `#${i}`; })
-    );
-  }
-
-  for (let i = 0; i < promises.length; i += batchSize) {
-    await Promise.all(promises.slice(i, i + batchSize));
+  try {
+    const res = await fetch('pokemon_names_fr.json');
+    if (!res.ok) throw new Error('Failed to load');
+    state.names = await res.json();
+  } catch {
+    console.warn('Failed to load pokemon_names_fr.json, using fallback names');
+    for (let i = 1; i <= POKEDEX_TOTAL; i++) {
+      state.names[i] = `#${i}`;
+    }
   }
 }
 
@@ -323,131 +456,357 @@ function renderProgressBars() {
   }).join('');
 }
 
-function renderGrid() {
-  const grid   = document.getElementById('pokedex-grid');
-  const capMap = buildCaptureMap();
-  const query  = state.searchQuery.toLowerCase();
-  const filter = state.activeFilter;
-
-  renderProgressBars();
+function _renderPokeGrid({
+  grid,
+  searchQuery,
+  activeFilter,
+  visibleGenerations,
+  getCaptureInfo,
+  onProgressBars,
+  onCardClick,
+  pokédexMode = 'normal',
+}) {
+  onProgressBars();
   grid.innerHTML = '';
 
   let displayedCount = 0;
+  const megaSpritePromises = [];
 
-  for (const gen of getVisibleGenerations()) {
+  for (const gen of visibleGenerations) {
     const section = document.createElement('section');
     section.className = 'generation-section';
-
     section.innerHTML = `
       <div class="generation-title">
-        <div class="generation-title-main">
-          <span>${gen.label}</span>
-        </div>
+        <div class="generation-title-main"><span>${gen.label}</span></div>
       </div>
       <div class="generation-grid"></div>
     `;
-
     const genGrid = section.querySelector('.generation-grid');
 
     for (let id = gen.start; id <= gen.end; id++) {
-      const tier     = POKEMON_TIERS[id];
-      const name     = state.names[id] || `#${id}`;
-      const captures = capMap[id] || [];
-      const captured = captures.length > 0;
-      const hasShiny = captures.some(c => c.is_shiny);
+      const tier = POKEMON_TIERS[id];
+      const name = state.names[id] || `#${id}`;
+      const capInfo = getCaptureInfo(id);
+      
+      let megaCaptures = [];
+      if (pokédexMode === 'mega') {
+        if (Array.isArray(capInfo)) {
+          megaCaptures = capInfo.filter(c => c.is_mega);
+        } else if (capInfo?.is_mega) {
+          megaCaptures = [capInfo];
+        }
+      }
 
-      if (filter === 'captured' && !captured) continue;
-      if (filter === 'shiny'    && !hasShiny) continue;
-      if (['commun','peuCommun','rare','epique','fabuleux','legendaire'].includes(filter) && tier !== filter) continue;
-      if (query && !name.toLowerCase().includes(query) && !String(id).includes(query)) continue;
+      // En mode mega, itérer sur toutes les formes disponibles
+      if (pokédexMode === 'mega') {
+        if (!MEGA_EVOLUTIONS[id]) continue;
 
-      const spriteUrl = hasShiny
-        ? `${SPRITE_SHINY}${id}.png`
-        : `${SPRITE_BASE}${id}.png`;
+        const megaData = MEGA_EVOLUTIONS[id];
+        const megaForms = Array.isArray(megaData) ? megaData : [megaData];
 
-      const card = document.createElement('div');
-      card.className = `poke-card r-${tier}${captured ? ' captured' : ''}${hasShiny ? ' shiny-card' : ''}`;
-      card.dataset.id = id;
-      card.innerHTML = `
-        <div class="poke-sprite-wrap">
-          <img class="poke-sprite" src="${spriteUrl}" alt="${name}" loading="lazy">
-          ${hasShiny ? '<span class="shiny-badge">✨</span>' : ''}
-        </div>
-        <div class="poke-number">#${String(id).padStart(3, '0')}</div>
-        <div class="poke-name">${captured ? name : '???'}</div>
-        ${captured ? `<div class="poke-date">${formatDate(captures[0].captured_at)}</div>` : ''}
-      `;
+        for (const megaForm of megaForms) {
+          // Vérifier si CETTE forme spécifique est capturée
+          let formCaptured = false;
+          let formCaptures = [];
+          
+          if (megaCaptures.length > 0) {
+            // Chercher les captures avec mega_form
+            const capturesWithForm = megaCaptures.filter(c => c.mega_form);
+            
+            if (capturesWithForm.length > 0) {
+              // On a des données mega_form, filtrer par forme exacte
+              formCaptures = megaCaptures.filter(c => c.mega_form === megaForm.slug);
+              formCaptured = formCaptures.length > 0;
+            } else {
+              // Pas de mega_form en données (ancien format, avant migration)
+              // Fallback: supposer c'est la première forme qui est capturée
+              formCaptured = megaForm === megaForms[0];
+              formCaptures = megaCaptures;
+            }
+          }
+          
+          const captured = formCaptured;
+          const hasShiny = formCaptures.some(c => c.is_shiny);
+          const date = formCaptures[0]?.captured_at;
 
-      card.addEventListener('click', () => openModal(id, captures));
-      genGrid.appendChild(card);
-      displayedCount++;
+          if (activeFilter === 'captured' && !captured) continue;
+          if (activeFilter === 'shiny' && !hasShiny) continue;
+          if (['commun','peuCommun','rare','epique','fabuleux','legendaire'].includes(activeFilter) && tier !== activeFilter) continue;
+          if (searchQuery && !name.toLowerCase().includes(searchQuery) && !String(id).includes(searchQuery)) continue;
+
+          const spriteUrl = hasShiny ? `${SPRITE_SHINY}${id}.png` : `${SPRITE_BASE}${id}.png`;
+
+          const card = document.createElement('div');
+          const cardClasses = `poke-card r-${tier}${captured ? ' captured' : ''}${hasShiny ? ' shiny-card' : ''}`;
+          card.className = cardClasses;
+          card.dataset.id = id;
+          card.dataset.megaForm = megaForm.slug;
+          
+          const spriteImg = document.createElement('img');
+          spriteImg.className = 'poke-sprite';
+          spriteImg.src = spriteUrl;
+          spriteImg.alt = name;
+          spriteImg.loading = 'lazy';
+          
+                    // Extraire le type de forme pour l'affichage (X, Y, Primal, etc.)
+          const formLabel = megaForm.slug.split('-').pop().toUpperCase();
+          const displayFormLabel = formLabel === 'MEGA' ? '' : ` ${formLabel}`;
+          const nameMega = displayFormLabel === ' PRIMAL'
+            ? `Primo ${captured ? name : '???'}`
+            : `Mega ${captured ? name : '???'}${displayFormLabel}`;
+          card.innerHTML = `
+            <div class="poke-sprite-wrap"></div>
+            <div class="poke-number">#${String(id).padStart(3, '0')}</div>
+            <div class="poke-name">${nameMega}</div>
+            ${captured ? `<div class="poke-date">${formatDate(date)}</div>` : ''}
+          `;
+          card.querySelector('.poke-sprite-wrap').appendChild(spriteImg);
+
+          card.tabIndex = 0;
+          card.setAttribute('role', 'button');
+          card.setAttribute('aria-label', `Carte ${captured ? name : 'Pokémon inconnu'} ${TIER_LABELS[tier]}`);
+          card.addEventListener('click', () => onCardClick(id, megaCaptures, megaForm.slug));
+          card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onCardClick(id, megaCaptures, megaForm.slug);
+            }
+          });
+          genGrid.appendChild(card);
+          displayedCount++;
+
+          // Charger le sprite de la mega en parallèle
+          if (captured) {
+            megaSpritePromises.push(
+              getMegaSpriteUrl(id, megaForm.slug, hasShiny).then(megaSpriteUrl => {
+                if (megaSpriteUrl) {
+                  spriteImg.src = megaSpriteUrl;
+                }
+              })
+            );
+          }
+        }
+      } else {
+        // Mode normal - affichage standard
+        const captured = !!capInfo;
+        const hasShiny = Array.isArray(capInfo) ? capInfo.some(c => c.is_shiny) : capInfo?.is_shiny;
+        const date = Array.isArray(capInfo) ? capInfo[0]?.captured_at : capInfo?.captured_at;
+
+        if (activeFilter === 'captured' && !captured) continue;
+        if (activeFilter === 'shiny' && !hasShiny) continue;
+        if (['commun','peuCommun','rare','epique','fabuleux','legendaire'].includes(activeFilter) && tier !== activeFilter) continue;
+        if (searchQuery && !name.toLowerCase().includes(searchQuery) && !String(id).includes(searchQuery)) continue;
+
+        const spriteUrl = hasShiny ? `${SPRITE_SHINY}${id}.png` : `${SPRITE_BASE}${id}.png`;
+
+        const card = document.createElement('div');
+        const cardClasses = `poke-card r-${tier}${captured ? ' captured' : ''}${hasShiny ? ' shiny-card' : ''}`;
+        card.className = cardClasses;
+        card.dataset.id = id;
+        
+        card.innerHTML = `
+          <div class="poke-sprite-wrap">
+            <img class="poke-sprite" src="${spriteUrl}" alt="${name}" loading="lazy">
+          </div>
+          <div class="poke-number">#${String(id).padStart(3, '0')}</div>
+          <div class="poke-name">${captured ? name : '???'}</div>
+          ${captured ? `<div class="poke-date">${formatDate(date)}</div>` : ''}
+        `;
+
+        card.tabIndex = 0;
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-label', `Carte ${captured ? name : 'Pokémon inconnu'} ${TIER_LABELS[tier]}`);
+        card.addEventListener('click', () => onCardClick(id, capInfo));
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onCardClick(id, capInfo);
+          }
+        });
+        genGrid.appendChild(card);
+        displayedCount++;
+      }
     }
 
     if (genGrid.children.length) grid.appendChild(section);
   }
 
   if (displayedCount === 0) {
-    grid.innerHTML = `
-      <div style="grid-column:1/-1;text-align:center;color:var(--muted);
-                  font-family:'Press Start 2P',monospace;font-size:9px;
-                  padding:60px 0;line-height:2.5">
-        Aucun Pokémon<br>trouvé
-      </div>`;
+    const emptyMsg = pokédexMode === 'mega' 
+      ? 'Aucune Méga Évolution trouvée'
+      : 'Aucun Pokémon trouvé';
+    grid.innerHTML = `<div class="grid-empty-state">${emptyMsg}</div>`;
   }
+
+  Promise.all(megaSpritePromises).catch(() => {});
+}
+
+function getMegaEvolution(pokemonId) {
+  const mega = MEGA_EVOLUTIONS[pokemonId] || null;
+  if (!mega) return null;
+  if (Array.isArray(mega)) {
+    return mega[Math.floor(Math.random() * mega.length)];
+  }
+  return mega;
+}
+
+async function getMegaSpriteUrl(pokemonId, megaForm = null, isShiny = false) {
+  const mega = MEGA_EVOLUTIONS[pokemonId];
+  if (!mega) return null;
+
+  const slug = megaForm || (Array.isArray(mega) ? mega[0].slug : mega.slug);
+  const cacheKey = `${slug}${isShiny ? '-shiny' : ''}`;
+  
+  if (megaSpriteCache[cacheKey]) return megaSpriteCache[cacheKey];
+
+  try {
+    const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${slug}/`);
+    if (!res.ok) throw new Error(`PokeAPI ${res.status}`);
+    const data = await res.json();
+    
+    let url;
+    if (isShiny) {
+      url = data?.sprites?.other?.['official-artwork']?.front_shiny;
+      if (!url) url = data?.sprites?.front_shiny;
+    }
+    if (!url) url = data?.sprites?.other?.['official-artwork']?.front_default;
+    if (!url) url = data?.sprites?.front_default;
+    
+    if (url) megaSpriteCache[cacheKey] = url;
+    return url;
+  } catch (e) {
+    console.warn(`Sprite mega unavailable for ${slug}`);
+    return null;
+  }
+}
+
+function renderGrid() {
+  const capMap = buildCaptureMap();
+  _renderPokeGrid({
+    grid: document.getElementById('pokedex-grid'),
+    searchQuery: state.searchQuery,
+    activeFilter: state.activeFilter,
+    visibleGenerations: getVisibleGenerations(),
+    getCaptureInfo: (id) => capMap[id],
+    onProgressBars: renderProgressBars,
+    onCardClick: (id, info, megaForm) => openModal(id, info, megaForm),
+    pokédexMode: state.pokédexMode,
+  });
 }
 
 /* ════════════════════════════════════════════════
    MODAL
 ════════════════════════════════════════════════ */
-function openModal(id, captures) {
+async function openModal(id, captures, megaForm = null) {
   const name     = state.names[id] || `#${id}`;
   const tier     = POKEMON_TIERS[id];
-  const captured = captures.length > 0;
-  const hasShiny = captures.some(c => c.is_shiny);
+  
+  const capturedList = captures && captures.length > 0 ? captures : [];
+  const captured = capturedList.length > 0;
+  
+  // Filtrer les captures par forme si on est en mode mega
+  // NOTE: Cette logique suppose que la table Supabase a une colonne "mega_form" (VARCHAR)
+  // qui contient le slug de la forme (ex: 'charizard-mega-x', 'charizard-mega-y', etc.)
+  // Si tu n'as pas encore cette colonne, ajoute-la et peuple-la avec les données existantes
+  let displayedCaptures = capturedList;
+  if (state.pokédexMode === 'mega' && megaForm && capturedList.length > 0) {
+    const capturesWithForm = capturedList.filter(c => c.mega_form);
+    if (capturesWithForm.length > 0) {
+      displayedCaptures = capturedList.filter(c => c.mega_form === megaForm);
+    }
+  }
+  
+  const hasShiny = displayedCaptures.some(c => c.is_shiny);
+  const hasMega = displayedCaptures.some(c => c.is_mega);
 
-  // Sprite shiny si possédé
-  const spriteUrl = hasShiny
+  let spriteUrl = hasShiny
     ? `${SPRITE_SHINY}${id}.png`
     : `${SPRITE_BASE}${id}.png`;
+  
+  // Si mode mega et qu'on a une forme, charger le sprite mega
+  if (state.pokédexMode === 'mega' && megaForm && captured) {
+    const megaSpriteUrl = await getMegaSpriteUrl(id, megaForm, hasShiny);
+    if (megaSpriteUrl) spriteUrl = megaSpriteUrl;
+  }
 
   document.getElementById('modal-sprite').src       = spriteUrl;
   document.getElementById('modal-sprite').className = `modal-sprite${captured ? '' : ' silhouette'}`;
   document.getElementById('modal-name').textContent   = captured ? name : '???';
   document.getElementById('modal-number').textContent = `#${String(id).padStart(3, '0')}`;
 
-  // Badges rareté + shiny
+  // Badges rareté + shiny + mega
   const badges = document.getElementById('modal-badges');
   badges.innerHTML = '';
 
   const tb = document.createElement('span');
-  tb.className  = 'modal-badge';
-  tb.style.cssText = `background:${TIER_COLORS[tier]}22;color:${TIER_COLORS[tier]};border:1px solid ${TIER_COLORS[tier]}44`;
-  tb.textContent   = `${TIER_STARS[tier]} ${TIER_LABELS[tier]}`;
+  tb.className = `modal-badge modal-badge-${tier}`;
+  tb.textContent = `${TIER_STARS[tier]} ${TIER_LABELS[tier]}`;
   badges.appendChild(tb);
+
+  if (hasMega) {
+    const mb = document.createElement('span');
+    mb.className = 'modal-badge modal-badge-mega';
+    mb.innerHTML = '<img src="https://archives.bulbagarden.net/media/upload/c/cd/Mega_Evolution_key_stone_icon.png" alt="Keystone" style="width:14px; height:14px; margin-right:4px; vertical-align:middle;"> Méga Évolution';
+    badges.appendChild(mb);
+  }
 
   if (hasShiny) {
     const sb = document.createElement('span');
-    sb.className  = 'modal-badge';
-    sb.style.cssText = 'background:rgba(0,229,255,0.1);color:#00e5ff;border:1px solid rgba(0,229,255,0.3)';
-    sb.textContent   = '✨ Shiny';
+    sb.className = 'modal-badge modal-badge-shiny';
+    sb.innerHTML = '✨ Shiny';
     badges.appendChild(sb);
   }
 
   // Infos captures
   const info = document.getElementById('modal-info');
   if (captured) {
-    info.innerHTML = captures
-      .map(c => `<div class="poke-date" style="margin-top:6px">${c.is_shiny ? '✨ ' : ''}Capturé le ${formatDate(c.captured_at)}</div>`)
+    info.innerHTML = displayedCaptures
+      .map(c => `<div class="poke-date" style="margin-top:6px">${c.is_shiny ? '✨ ' : ''}${c.is_mega ? '<img src="https://archives.bulbagarden.net/media/upload/c/cd/Mega_Evolution_key_stone_icon.png" alt="Keystone" style="width:12px; height:12px; margin-right:4px; vertical-align:middle;"> ' : ''}Capturé le ${formatDate(c.captured_at)}</div>`)
       .join('');
   } else {
     info.innerHTML = `<div class="modal-not-captured">Pas encore capturé</div>`;
   }
 
-  document.getElementById('modal-overlay').classList.add('open');
+  const overlay = document.getElementById('modal-overlay');
+  _modalLastFocus = document.activeElement;
+  overlay.classList.add('open');
+  document.getElementById('modal-close').focus();
+
+  // Trap focus inside the modal
+  trapFocus(overlay);
 }
 
 function closeModal() {
-  document.getElementById('modal-overlay').classList.remove('open');
+  const overlay = document.getElementById('modal-overlay');
+  const lastFocus = _modalLastFocus;
+  overlay.classList.remove('open');
+  overlay.removeEventListener('keydown', overlay._trapHandler);
+  if (lastFocus && typeof lastFocus.focus === 'function') {
+    lastFocus.focus({ preventScroll: true });
+  }
+  _modalLastFocus = null;
+}
+
+function trapFocus(element) {
+  const focusable = element.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+
+  element._trapHandler = (e) => {
+    if (e.key !== 'Tab') return;
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  };
+  element.addEventListener('keydown', element._trapHandler);
 }
 
 // ─── Navigation entre les vues ────────────────
@@ -459,15 +818,16 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.classList.add('active');
 
     document.getElementById('view-pokedex').style.display   = page === 'pokedex'    ? 'block' : 'none';
-    document.getElementById('view-community').style.display = page === 'community'  ? 'block' : 'none';
+    document.getElementById('view-community').style.display = page === 'communauté'  ? 'block' : 'none';
     document.getElementById('view-stats').style.display     = page === 'stats'      ? 'block' : 'none';
-    document.getElementById('view-rank').style.display      = page === 'ranking'    ? 'block' : 'none';
-    document.getElementById('view-admin').style.display     = page === 'admin'      ? 'block' : 'none';
+    document.getElementById('view-rank').style.display      = page === 'classements'    ? 'block' : 'none';
+    document.getElementById('view-admin').style.display     = page === 'dresseurs'      ? 'block' : 'none';
 
-    if (page === 'ranking')   loadStats(true);
-    if (page === 'admin')     loadAdminUsers(true);
+    if (page === 'classements')   loadStats(true);
+    if (page === 'dresseurs')     loadAdminUsers(true);
     if (page === 'stats')     loadStatsDashboard(true);
-    if (page === 'community') loadCommunityPokedex(true);
+    if (page === 'communauté') loadCommunityPokedex();
+    updateUrlState();
   });
 });
 
@@ -511,6 +871,10 @@ function getStatsGenerationConfig() {
 
   if (state.activeStatsGen === '2') {
     return { label: 'Gen 2', min: 152, max: 251, total: 100 };
+  }
+
+  if (state.activeStatsGen === '3') {
+    return { label: 'Gen 3', min: 252, max: 386, total: 135 };
   }
 
   return { label: 'Total', min: 1, max: POKEDEX_TOTAL, total: POKEDEX_TOTAL };
@@ -601,11 +965,11 @@ function renderPodiumRanking(containerId, list, total = POKEDEX_TOTAL) {
         const safeName = escapeHtml(u.name);
         const completed = u.pokemons.size;
         const percent = Math.round((completed / total) * 100);
-        const crown = place === 1 ? '👑' : place === 2 ? '🥈' : '🥉';
+        const placeLabel = place === 1 ? '1er' : place === 2 ? '2e' : '3e';
 
         return `
           <div class="podium-card podium-${place} clickable" data-login="${escapeHtml(u.login)}">
-            <div class="podium-rank">${crown}</div>
+            <div class="podium-rank">${placeLabel}</div>
             ${avatarMarkup(u, 'podium-avatar')}
             <div class="podium-name stats-user-link" data-login="${escapeHtml(u.login)}" title="${safeName}">${safeName}</div>
             <div class="podium-score">${completed} / ${total}</div>
@@ -653,12 +1017,7 @@ async function loadCommunityPokedex(forceRefresh = false) {
     return;
   }
 
-  document.getElementById('community-grid').innerHTML = `
-    <div style="grid-column:1/-1;text-align:center;color:var(--muted);
-                font-family:'Press Start 2P',monospace;font-size:9px;
-                padding:60px 0;line-height:2.5">
-      Chargement...<br>
-    </div>`;
+  document.getElementById('community-grid').innerHTML = '<div class="grid-skeleton">Chargement...</div>';
 
   const rows = await fetchAllSupabaseRows(
     `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id,is_shiny,captured_at&order=captured_at.asc`,
@@ -709,75 +1068,19 @@ function renderCommunityProgressBars() {
 }
 
 function renderCommunityGrid() {
-  const grid   = document.getElementById('community-grid');
-  const filter = state.communityFilter;
-  const genFilter = state.communityGenFilter;
-  const query  = state.communitySearch.toLowerCase();
-  const capMap = state.communityCaptures; // { pokemon_id: firstCapture }
-
-  renderCommunityProgressBars();
-  grid.innerHTML = '';
-
-  const visibleGens = genFilter === 'all'
+  const visibleGens = state.communityGenFilter === 'all'
     ? GENERATIONS
-    : GENERATIONS.filter(g => String(g.id) === String(genFilter));
+    : GENERATIONS.filter(g => String(g.id) === String(state.communityGenFilter));
 
-  let displayedCount = 0;
-
-  for (const gen of visibleGens) {
-    const section = document.createElement('section');
-    section.className = 'generation-section';
-    section.innerHTML = `
-      <div class="generation-title">
-        <div class="generation-title-main"><span>${gen.label}</span></div>
-      </div>
-      <div class="generation-grid"></div>
-    `;
-    const genGrid = section.querySelector('.generation-grid');
-
-    for (let id = gen.start; id <= gen.end; id++) {
-      const tier     = POKEMON_TIERS[id];
-      const name     = state.names[id] || `#${id}`;
-      const firstCap = capMap[id];
-      const captured = !!firstCap;
-      const hasShiny = firstCap?.is_shiny;
-
-      if (filter === 'captured' && !captured) continue;
-      if (filter === 'shiny'    && !hasShiny) continue;
-      if (['commun','peuCommun','rare','epique','fabuleux','legendaire'].includes(filter) && tier !== filter) continue;
-      if (query && !name.toLowerCase().includes(query) && !String(id).includes(query)) continue;
-
-      const spriteUrl = hasShiny ? `${SPRITE_SHINY}${id}.png` : `${SPRITE_BASE}${id}.png`;
-
-      const card = document.createElement('div');
-      card.className = `poke-card r-${tier}${captured ? ' captured' : ''}${hasShiny ? ' shiny-card' : ''}`;
-      card.dataset.id = id;
-      card.innerHTML = `
-        <div class="poke-sprite-wrap">
-          <img class="poke-sprite" src="${spriteUrl}" alt="${name}" loading="lazy">
-          ${hasShiny ? '<span class="shiny-badge">✨</span>' : ''}
-        </div>
-        <div class="poke-number">#${String(id).padStart(3, '0')}</div>
-        <div class="poke-name">${captured ? name : '???'}</div>
-        ${captured ? `<div class="poke-date">${formatDate(firstCap.captured_at)}</div>` : ''}
-      `;
-
-      card.addEventListener('click', () => openCommunityModal(id, firstCap));
-      genGrid.appendChild(card);
-      displayedCount++;
-    }
-
-    if (genGrid.children.length) grid.appendChild(section);
-  }
-
-  if (displayedCount === 0) {
-    grid.innerHTML = `
-      <div style="grid-column:1/-1;text-align:center;color:var(--muted);
-                  font-family:'Press Start 2P',monospace;font-size:9px;
-                  padding:60px 0;line-height:2.5">
-        Aucun Pokémon<br>trouvé
-      </div>`;
-  }
+  _renderPokeGrid({
+    grid: document.getElementById('community-grid'),
+    searchQuery: state.communitySearch,
+    activeFilter: state.communityFilter,
+    visibleGenerations: visibleGens,
+    getCaptureInfo: (id) => state.communityCaptures[id],
+    onProgressBars: renderCommunityProgressBars,
+    onCardClick: (id, info) => openCommunityModal(id, info),
+  });
 }
 
 function openCommunityModal(id, firstCap) {
@@ -797,16 +1100,14 @@ function openCommunityModal(id, firstCap) {
   badges.innerHTML = '';
 
   const tb = document.createElement('span');
-  tb.className = 'modal-badge';
-  tb.style.cssText = `background:${TIER_COLORS[tier]}22;color:${TIER_COLORS[tier]};border:1px solid ${TIER_COLORS[tier]}44`;
+  tb.className = `modal-badge modal-badge-${tier}`;
   tb.textContent = `${TIER_STARS[tier]} ${TIER_LABELS[tier]}`;
   badges.appendChild(tb);
 
   if (hasShiny) {
     const sb = document.createElement('span');
-    sb.className = 'modal-badge';
-    sb.style.cssText = 'background:rgba(0,229,255,0.1);color:#00e5ff;border:1px solid rgba(0,229,255,0.3)';
-    sb.textContent = '✨ Shiny';
+    sb.className = 'modal-badge modal-badge-shiny';
+    sb.innerHTML = '✨ Shiny';
     badges.appendChild(sb);
   }
 
@@ -823,15 +1124,21 @@ function openCommunityModal(id, firstCap) {
     info.innerHTML = `<div class="modal-not-captured">Pas encore capturé</div>`;
   }
 
-  document.getElementById('modal-overlay').classList.add('open');
+  const overlay = document.getElementById('modal-overlay');
+  _modalLastFocus = document.activeElement;
+  overlay.classList.add('open');
+  document.getElementById('modal-close').focus();
+
+  // Trap focus inside the modal
+  trapFocus(overlay);
 }
 
 function renderBestTrainerCommuPanel(gen) {
   const el = document.getElementById('sdash-first-capturers');
   if (!el || !state.dashSortedByDate) return;
 
-  const minId = gen === '1' ? 1   : gen === '2' ? 152 : 1;
-  const maxId = gen === '1' ? 151 : gen === '2' ? 251 : 251;
+  const minId = gen === '1' ? 1 : gen === '2' ? 152 : gen === '3' ? 252 : 1;
+  const maxId = gen === '1' ? 151 : gen === '2' ? 251 : gen === '3' ? 386 : POKEDEX_TOTAL;
   const total = maxId - minId + 1;
 
   const firstCapturers = {};
@@ -871,8 +1178,8 @@ function renderRarityPanel(gen) {
   const capturedIds = state.dashCapturedIds;
   if (!capturedIds) return;
 
-  const minId = gen === '1' ? 1   : gen === '2' ? 152 : 1;
-  const maxId = gen === '1' ? 151 : gen === '2' ? 251 : 251;
+  const minId = gen === '1' ? 1 : gen === '2' ? 152 : gen === '3' ? 252 : 1;
+  const maxId = gen === '1' ? 151 : gen === '2' ? 251 : gen === '3' ? 386 : POKEDEX_TOTAL;
 
   const TIERS_ORDER = ['legendaire','fabuleux','epique','rare','peuCommun','commun'];
 
@@ -886,11 +1193,11 @@ function renderRarityPanel(gen) {
     return `
       <div class="sdash-rarity-row">
         <div class="sdash-rarity-head">
-          <span class="sdash-rarity-name" style="color:${color}">${TIER_STARS[tier]} ${TIER_LABELS[tier]}</span>
+          <span class="sdash-rarity-name tier-${tier}">${TIER_STARS[tier]} ${TIER_LABELS[tier]}</span>
           <span class="sdash-rarity-count">${captured} / ${total}</span>
         </div>
         <div class="sdash-bar-track">
-          <div class="sdash-bar-fill" style="width:${pct}%;background:${color}"></div>
+          <div class="sdash-bar-fill tier-bg-${tier}" style="width:${pct}%;"></div>
         </div>
       </div>
     `;
@@ -901,8 +1208,8 @@ function renderTopPokemonPanel(gen) {
   const topEl = document.getElementById('sdash-top-pokemon');
   if (!topEl || !state.dashAllRows) return;
 
-  const minId = gen === '1' ? 1   : gen === '2' ? 152 : 1;
-  const maxId = gen === '1' ? 151 : gen === '2' ? 251 : 251;
+  const minId = gen === '1' ? 1 : gen === '2' ? 152 : gen === '3' ? 252 : 1;
+  const maxId = gen === '1' ? 151 : gen === '2' ? 251 : gen === '3' ? 386 : POKEDEX_TOTAL;
 
   const rows = state.dashAllRows.filter(r => {
     const id = Number(r.pokemon_id);
@@ -929,9 +1236,9 @@ function renderTopPokemonPanel(gen) {
       <div class="sdash-top-row">
         <span class="sdash-top-rank">#${i + 1}</span>
         <img class="sdash-top-sprite" src="${SPRITE_BASE}${id}.png" alt="${escapeHtml(name)}" loading="lazy">
-        <span class="sdash-top-name" style="color:${color}">${escapeHtml(name)}</span>
+        <span class="sdash-top-name tier-${tier}">${escapeHtml(name)}</span>
         <div class="sdash-bar-track sdash-bar-inline">
-          <div class="sdash-bar-fill" style="width:${barPct}%;background:${color}44"></div>
+          <div class="sdash-bar-fill tier-bg-${tier}" style="width:${barPct}%;opacity:.27"></div>
         </div>
         <span class="sdash-top-val">${count}</span>
       </div>
@@ -974,9 +1281,9 @@ async function loadStatsDashboard(forceRefresh = false) {
   // ── Répartition par rareté ────────────────────
   renderRarityPanel('all');
 
-  document.querySelectorAll('.sdash-gen-tab').forEach(btn => {
+  document.querySelectorAll('[data-rarity-gen]').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.sdash-gen-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('[data-rarity-gen]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       renderRarityPanel(btn.dataset.rarityGen);
     });
@@ -1135,7 +1442,7 @@ async function viewUserPokedex(user) {
 
   document.getElementById('filter-search').value = '';
 
-  document.querySelectorAll('.filter-btn').forEach(b =>
+  document.querySelectorAll('#view-pokedex .filter-btn').forEach(b =>
     b.classList.remove('active')
   );
 
@@ -1143,7 +1450,7 @@ async function viewUserPokedex(user) {
     .querySelector('.filter-btn[data-filter="all"]')
     .classList.add('active');
 
-  document.querySelectorAll('.gen-filter-btn').forEach(b =>
+  document.querySelectorAll('#view-pokedex .gen-filter-btn').forEach(b =>
     b.classList.remove('active')
   );
 
@@ -1211,6 +1518,7 @@ async function init() {
     document.getElementById('page-landing').style.display = 'none';
     document.getElementById('page-pokedex').style.display = 'block';
 
+    applyUrlState();
     renderGrid();
 
   } catch (e) {
@@ -1241,20 +1549,22 @@ document.getElementById('btn-logout').addEventListener('click', () => {
   document.getElementById('page-landing').style.display = 'flex';
 });
 
-document.querySelectorAll('.filter-btn').forEach(btn => {
+document.querySelectorAll('#view-pokedex .filter-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#view-pokedex .filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.activeFilter = btn.dataset.filter;
+    updateUrlState();
     renderGrid();
   });
 });
 
-document.querySelectorAll('.gen-filter-btn').forEach(btn => {
+document.querySelectorAll('#view-pokedex .gen-filter-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.gen-filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#view-pokedex .gen-filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.activeGenFilter = btn.dataset.genFilter;
+    updateUrlState();
     renderGrid();
   });
 });
@@ -1275,6 +1585,7 @@ if (progressToggle) {
 
 document.getElementById('filter-search').addEventListener('input', e => {
   state.searchQuery = e.target.value;
+  updateUrlState();
   renderGrid();
 });
 
@@ -1301,7 +1612,7 @@ document.getElementById('back-to-me-btn').addEventListener('click', () => {
 
   document.getElementById('filter-search').value = '';
 
-  document.querySelectorAll('.filter-btn').forEach(b =>
+  document.querySelectorAll('#view-pokedex .filter-btn').forEach(b =>
     b.classList.remove('active')
   );
 
@@ -1309,7 +1620,7 @@ document.getElementById('back-to-me-btn').addEventListener('click', () => {
     .querySelector('.filter-btn[data-filter="all"]')
     .classList.add('active');
 
-  document.querySelectorAll('.gen-filter-btn').forEach(b =>
+  document.querySelectorAll('#view-pokedex .gen-filter-btn').forEach(b =>
     b.classList.remove('active')
   );
 
@@ -1341,7 +1652,8 @@ document.querySelectorAll('[data-stats-gen]').forEach(btn => {
     document.querySelectorAll('[data-stats-gen]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.activeStatsGen = btn.dataset.statsGen;
-    loadStats(true);
+    updateUrlState();
+    renderStatsRanking();
   });
 });
 
@@ -1350,6 +1662,7 @@ document.querySelectorAll('#view-rank [data-first-gen]').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('#view-rank [data-first-gen]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    updateUrlState();
     renderBestTrainerCommuPanel(btn.dataset.firstGen);
   });
 });
@@ -1360,6 +1673,7 @@ document.querySelectorAll('#view-community .filter-btn').forEach(btn => {
     document.querySelectorAll('#view-community .filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.communityFilter = btn.dataset.communityFilter;
+    updateUrlState();
     renderCommunityGrid();
   });
 });
@@ -1369,13 +1683,32 @@ document.querySelectorAll('#view-community .gen-filter-btn').forEach(btn => {
     document.querySelectorAll('#view-community .gen-filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.communityGenFilter = btn.dataset.communityGen;
+    updateUrlState();
     renderCommunityGrid();
   });
 });
 
 document.getElementById('community-filter-search').addEventListener('input', e => {
   state.communitySearch = e.target.value;
+  updateUrlState();
   renderCommunityGrid();
+});
+
+// ─── Toggle Pokédex Normal / Mega ─────────────
+document.getElementById('pokédex-toggle-normal')?.addEventListener('click', () => {
+  document.querySelectorAll('.pokedex-view-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('pokédex-toggle-normal').classList.add('active');
+  state.pokédexMode = 'normal';
+  updateUrlState();
+  renderGrid();
+});
+
+document.getElementById('pokédex-toggle-mega')?.addEventListener('click', () => {
+  document.querySelectorAll('.pokedex-view-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('pokédex-toggle-mega').classList.add('active');
+  state.pokédexMode = 'mega';
+  updateUrlState();
+  renderGrid();
 });
 
 const communityProgressToggle = document.getElementById('community-progress-toggle');
@@ -1390,5 +1723,10 @@ if (communityProgressToggle) {
     if (label) label.textContent = isOpen ? 'Détails' : 'Masquer';
   });
 }
+
+/* ── Header scroll shadow ── */
+window.addEventListener('scroll', () => {
+  document.querySelector('.header')?.classList.toggle('scrolled', window.scrollY > 0);
+});
 
 init();
