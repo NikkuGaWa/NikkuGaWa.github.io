@@ -13,7 +13,7 @@ const CONFIG = {
   },
 };
 
-const EXCLUDED_USER_NAMES = ['nikkugawa',"nikku_bot_"];
+const EXCLUDED_USER_NAMES = ['nikkugawa',"nikku_bot_","octavie9"];
 
 const MEGA_EVOLUTIONS = {
   3: { slug: 'venusaur-mega' },
