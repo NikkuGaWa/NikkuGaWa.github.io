@@ -42,6 +42,29 @@ const MEGA_EVOLUTIONS = {
   214: { slug: 'heracross-mega' },
   229: { slug: 'houndoom-mega' },
   248: { slug: 'tyranitar-mega' },
+  254: { slug: 'sceptile-mega' },
+  257: { slug: 'blaziken-mega' },
+  260: { slug: 'swampert-mega' },
+  282: { slug: 'gardevoir-mega' },
+  302: { slug: 'sableye-mega' },
+  303: { slug: 'mawile-mega' },
+  306: { slug: 'aggron-mega' },
+  308: { slug: 'medicham-mega' },
+  310: { slug: 'manectric-mega' },
+  319: { slug: 'sharpedo-mega' },
+  323: { slug: 'camerupt-mega' },
+  334: { slug: 'altaria-mega' },
+  354: { slug: 'banette-mega' },
+  358: { slug: 'chimecho-mega' },
+  359: [{ slug: 'absol-mega' }, { slug: 'absol-mega-z' }],
+  362: { slug: 'glalie-mega' },
+  373: { slug: 'salamence-mega' },
+  376: { slug: 'metagross-mega' },
+  380: { slug: 'latias-mega' },
+  381: { slug: 'latios-mega' },
+  384: { slug: 'rayquaza-mega' },
+  382: { slug: 'kyogre-primal' },
+  383: { slug: 'groudon-primal' },
 };
 
 const megaSpriteCache = {};
@@ -96,7 +119,25 @@ TIERS_DEF.legendaire.push(
   243,244,245,249,250,
 );
 
-
+/* ── Gen 3 ajoutée dans chaque tier ── */
+TIERS_DEF.commun.push(
+  261,262,263,264,265,266,268,270,273,276,277,278,283,284,285,287,290,293,294,296,300,304,307,309,313,314,316,318,322,325,326,327,328,331,332,333,339,341,343,353,355,358,363,366,367,368,370,
+);
+TIERS_DEF.peuCommun.push(
+  267,269,271,274,279,281,288,291,292,295,297,298,299,301,302,305,308,310,311,312,315,317,319,320,323,324,329,335,336,337,338,340,342,344,352,354,356,357,360,361,362,364,369,371,374,
+);
+TIERS_DEF.rare.push(
+  252,253,255,256,258,259,272,275,280,286,289,303,306,321,330,334,345,347,351,359,365,372,375,
+);
+TIERS_DEF.epique.push(
+  254,257,260,282,346,348,349,350,373,376,
+);
+TIERS_DEF.fabuleux.push(
+  385,386,
+);
+TIERS_DEF.legendaire.push(
+  377,378,379,380,381,382,383,384,
+);
 
 for (const [tier, ids] of Object.entries(TIERS_DEF)) {
   for (const id of ids) POKEMON_TIERS[id] = tier;
@@ -113,10 +154,11 @@ const SPRITE_SHINY = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/s
    ÉTAT
 ════════════════════════════════════════════════ */
 
-const POKEDEX_TOTAL = 251;
+const POKEDEX_TOTAL = 386;
 const GENERATIONS = [
   { id: 1, label: 'Génération 1', shortLabel: 'Gen 1', start: 1, end: 151 },
   { id: 2, label: 'Génération 2', shortLabel: 'Gen 2', start: 152, end: 251 },
+  { id: 3, label: 'Génération 3', shortLabel: 'Gen 3', start: 252, end: 386 },
 ];
 
 function getGenerationTotal(gen) {
@@ -548,9 +590,10 @@ function _renderPokeGrid({
           spriteImg.alt = name;
           spriteImg.loading = 'lazy';
           
-                    // Extraire le type de forme pour l'affichage (X, Y, Primal, etc.)
+          // Extraire le type de forme pour l'affichage (X, Y, Primal, etc.)
           const formLabel = megaForm.slug.split('-').pop().toUpperCase();
           const displayFormLabel = formLabel === 'MEGA' ? '' : ` ${formLabel}`;
+          console.log(displayFormLabel)
           const nameMega = displayFormLabel === ' PRIMAL'
             ? `Primo ${captured ? name : '???'}`
             : `Mega ${captured ? name : '???'}${displayFormLabel}`;
@@ -1442,7 +1485,7 @@ async function viewUserPokedex(user) {
 
   document.getElementById('filter-search').value = '';
 
-  document.querySelectorAll('#view-pokedex .filter-btn').forEach(b =>
+  document.querySelectorAll('.filter-btn').forEach(b =>
     b.classList.remove('active')
   );
 
@@ -1450,7 +1493,7 @@ async function viewUserPokedex(user) {
     .querySelector('.filter-btn[data-filter="all"]')
     .classList.add('active');
 
-  document.querySelectorAll('#view-pokedex .gen-filter-btn').forEach(b =>
+  document.querySelectorAll('.gen-filter-btn').forEach(b =>
     b.classList.remove('active')
   );
 
@@ -1612,7 +1655,7 @@ document.getElementById('back-to-me-btn').addEventListener('click', () => {
 
   document.getElementById('filter-search').value = '';
 
-  document.querySelectorAll('#view-pokedex .filter-btn').forEach(b =>
+  document.querySelectorAll('.filter-btn').forEach(b =>
     b.classList.remove('active')
   );
 
@@ -1620,7 +1663,7 @@ document.getElementById('back-to-me-btn').addEventListener('click', () => {
     .querySelector('.filter-btn[data-filter="all"]')
     .classList.add('active');
 
-  document.querySelectorAll('#view-pokedex .gen-filter-btn').forEach(b =>
+  document.querySelectorAll('.gen-filter-btn').forEach(b =>
     b.classList.remove('active')
   );
 
@@ -1695,10 +1738,33 @@ document.getElementById('community-filter-search').addEventListener('input', e =
 });
 
 // ─── Toggle Pokédex Normal / Mega ─────────────
+function resetPokedexFilters() {
+  state.activeFilter = 'all';
+  state.activeGenFilter = 'all';
+  state.searchQuery = '';
+
+  document.querySelectorAll('#view-pokedex .filter-btn').forEach(b =>
+    b.classList.remove('active')
+  );
+  document
+    .querySelector('#view-pokedex .filter-btn[data-filter="all"]')
+    .classList.add('active');
+
+  document.querySelectorAll('#view-pokedex .gen-filter-btn').forEach(b =>
+    b.classList.remove('active')
+  );
+  document
+    .querySelector('#view-pokedex .gen-filter-btn[data-gen-filter="all"]')
+    .classList.add('active');
+
+  document.getElementById('filter-search').value = '';
+}
+
 document.getElementById('pokédex-toggle-normal')?.addEventListener('click', () => {
   document.querySelectorAll('.pokedex-view-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('pokédex-toggle-normal').classList.add('active');
   state.pokédexMode = 'normal';
+  resetPokedexFilters();
   updateUrlState();
   renderGrid();
 });
@@ -1707,6 +1773,7 @@ document.getElementById('pokédex-toggle-mega')?.addEventListener('click', () =>
   document.querySelectorAll('.pokedex-view-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('pokédex-toggle-mega').classList.add('active');
   state.pokédexMode = 'mega';
+  resetPokedexFilters();
   updateUrlState();
   renderGrid();
 });
