@@ -57,8 +57,8 @@ const MEGA_EVOLUTIONS = {
   260: { slug: 'swampert-mega', nom: 'Méga-Laggron' },
   282: { slug: 'gardevoir-mega', nom: 'Méga-Gardevoir' },
   302: { slug: 'sableye-mega', nom: 'Méga-Ténéfix' },
-  303: { slug: 'aggron-mega', nom: 'Méga-Mysdibule' },
-  306: { slug: 'metagross-mega', nom: 'Méga-Galeking' },
+  303: { slug: 'mawile-mega', nom: 'Méga-Mysdibule' },
+  306: { slug: 'aggron-mega', nom: 'Méga-Galeking' },
   308: { slug: 'medicham-mega', nom: 'Méga-Charmina' },
   310: { slug: 'manectric-mega', nom: 'Méga-Élecsprint' },
   319: { slug: 'sharpedo-mega', nom: 'Méga-Sharpedo' },
@@ -78,6 +78,7 @@ const MEGA_EVOLUTIONS = {
   382: { slug: 'kyogre-primal', nom: 'Primo-Kyogre' },
   383: { slug: 'groudon-primal', nom: 'Primo-Groudon' },
   384: { slug: 'rayquaza-mega', nom: 'Méga-Rayquaza' },
+  398: { slug: 'staraptor-mega', nom: 'Méga-Étouraptor' },
 };
 
 const megaSpriteCache = {};
@@ -209,6 +210,8 @@ let state = {
   communityGenFilter: 'all',
   communitySearch: '',
   pokédexMode: 'normal', // 'normal' ou 'mega'
+  dashRarityGen: 'all',
+  dashTopGen: 'all',
 };
 
 let _modalLastFocus = null;
@@ -216,21 +219,40 @@ let _modalLastFocus = null;
 /* ════════════════════════════════════════════════
    DEEP-LINKING (URL HASH)
 ════════════════════════════════════════════════ */
-const DEEP_LINK_KEYS = ['view', 'filter', 'gen', 'search', 'cf', 'cg', 'cs'];
+const VALID_VIEWS   = ['pokedex', 'communauté', 'stats', 'classements', 'dresseurs'];
+const VALID_FILTERS = ['all', 'captured', 'shiny', 'commun', 'peuCommun', 'rare', 'epique', 'fabuleux', 'legendaire'];
+const VALID_GENS    = ['all', '1', '2', '3'];
+const VALID_MODES   = ['normal', 'mega'];
+
+function pickAllowed(value, allowed, fallback) {
+  return allowed.includes(value) ? value : fallback;
+}
 
 function getUrlState() {
   const hash = window.location.hash.replace('#', '');
-  if (!hash) return {};
-  const parts = hash.split('?');
-  const view = parts[0] || 'pokedex';
-  const params = new URLSearchParams(parts[1] || '');
+  // Le fragment de retour OAuth n'est pas un état de navigation
+  if (!hash || hash.includes('access_token')) return {};
+
+  const [rawView, rawQuery] = hash.split('?');
+
+  let view;
+  try {
+    // location.hash est percent-encodé : "communauté" arrive en "communaut%C3%A9"
+    view = decodeURIComponent(rawView || '');
+  } catch {
+    return {};
+  }
+  if (!VALID_VIEWS.includes(view)) return {};
+
+  const params = new URLSearchParams(rawQuery || '');
   return {
     view,
-    filter: params.get('filter') || 'all',
-    gen: params.get('gen') || 'all',
-    search: params.get('search') || '',
-    communityFilter: params.get('cf') || 'all',
-    communityGen: params.get('cg') || 'all',
+    filter:          pickAllowed(params.get('filter'), VALID_FILTERS, 'all'),
+    gen:             pickAllowed(params.get('gen'), VALID_GENS, 'all'),
+    mode:            pickAllowed(params.get('mode'), VALID_MODES, 'normal'),
+    search:          params.get('search') || '',
+    communityFilter: pickAllowed(params.get('cf'), VALID_FILTERS, 'all'),
+    communityGen:    pickAllowed(params.get('cg'), VALID_GENS, 'all'),
     communitySearch: params.get('cs') || '',
   };
 }
@@ -239,44 +261,40 @@ function updateUrlState() {
   const activeView = document.querySelector('.nav-btn.active')?.dataset.page || 'pokedex';
   const params = new URLSearchParams();
 
-  if (state.activeFilter !== 'all') params.set('filter', state.activeFilter);
-  if (state.activeGenFilter !== 'all') params.set('gen', state.activeGenFilter);
-  if (state.searchQuery) params.set('search', state.searchQuery);
-  if (state.communityFilter !== 'all') params.set('cf', state.communityFilter);
+  if (state.activeFilter !== 'all')       params.set('filter', state.activeFilter);
+  if (state.activeGenFilter !== 'all')    params.set('gen', state.activeGenFilter);
+  if (state.pokédexMode !== 'normal')     params.set('mode', state.pokédexMode);
+  if (state.searchQuery)                  params.set('search', state.searchQuery);
+  if (state.communityFilter !== 'all')    params.set('cf', state.communityFilter);
   if (state.communityGenFilter !== 'all') params.set('cg', state.communityGenFilter);
-  if (state.communitySearch) params.set('cs', state.communitySearch);
+  if (state.communitySearch)              params.set('cs', state.communitySearch);
 
   const query = params.toString();
-  const hash = activeView + (query ? '?' + query : '');
+  const hash = encodeURIComponent(activeView) + (query ? '?' + query : '');
   history.replaceState(null, '', '#' + hash);
 }
 
-function applyUrlState() {
-  const urlState = getUrlState();
+function applyUrlState(urlState = getUrlState()) {
   if (!urlState.view) return;
 
-  // Apply state values
-  if (urlState.filter) state.activeFilter = urlState.filter;
-  if (urlState.gen) state.activeGenFilter = urlState.gen;
-  if (urlState.search) state.searchQuery = urlState.search;
-  if (urlState.communityFilter) state.communityFilter = urlState.communityFilter;
-  if (urlState.communityGen) state.communityGenFilter = urlState.communityGen;
-  if (urlState.communitySearch) state.communitySearch = urlState.communitySearch;
+  state.activeFilter       = urlState.filter;
+  state.activeGenFilter    = urlState.gen;
+  state.pokédexMode        = urlState.mode;
+  state.searchQuery        = urlState.search.trim().toLowerCase();
+  state.communityFilter    = urlState.communityFilter;
+  state.communityGenFilter = urlState.communityGen;
+  state.communitySearch    = urlState.communitySearch.trim().toLowerCase();
 
-  // Set active nav button
-  document.querySelectorAll('.nav-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.page === urlState.view);
-  });
-
-  // Set filter buttons
   document.querySelectorAll('#view-pokedex .filter-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.filter === state.activeFilter);
   });
   document.querySelectorAll('#view-pokedex .gen-filter-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.genFilter === state.activeGenFilter);
   });
+  document.querySelectorAll('.pokedex-view-toggle .toggle-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.toggle === state.pokédexMode);
+  });
 
-  // Set community filters
   document.querySelectorAll('#view-community .filter-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.communityFilter === state.communityFilter);
   });
@@ -284,31 +302,29 @@ function applyUrlState() {
     b.classList.toggle('active', b.dataset.communityGen === state.communityGenFilter);
   });
 
-  // Set search inputs
-  if (state.searchQuery) {
-    const el = document.getElementById('filter-search');
-    if (el) el.value = state.searchQuery;
-  }
-  if (state.communitySearch) {
-    const el = document.getElementById('community-filter-search');
-    if (el) el.value = state.communitySearch;
-  }
+  const searchEl = document.getElementById('filter-search');
+  if (searchEl) searchEl.value = state.searchQuery;
+  const communitySearchEl = document.getElementById('community-filter-search');
+  if (communitySearchEl) communitySearchEl.value = state.communitySearch;
 
-  // Switch to the page
   switchToPage(urlState.view);
 }
 
 function switchToPage(page) {
-  document.getElementById('view-pokedex').style.display   = page === 'pokedex'    ? 'block' : 'none';
-  document.getElementById('view-community').style.display = page === 'communauté'  ? 'block' : 'none';
-  document.getElementById('view-stats').style.display     = page === 'stats'      ? 'block' : 'none';
-  document.getElementById('view-rank').style.display      = page === 'classements'    ? 'block' : 'none';
-  document.getElementById('view-admin').style.display     = page === 'dresseurs'      ? 'block' : 'none';
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.page === page);
+  });
 
-  if (page === 'classements')   loadStats(true);
-  if (page === 'dresseurs')     loadAdminUsers(true);
-  if (page === 'stats')     loadStatsDashboard(true);
-  if (page === 'communauté') loadCommunityPokedex();
+  document.getElementById('view-pokedex').style.display   = page === 'pokedex'     ? 'block' : 'none';
+  document.getElementById('view-community').style.display = page === 'communauté'  ? 'block' : 'none';
+  document.getElementById('view-stats').style.display     = page === 'stats'       ? 'block' : 'none';
+  document.getElementById('view-rank').style.display      = page === 'classements' ? 'block' : 'none';
+  document.getElementById('view-admin').style.display     = page === 'dresseurs'   ? 'block' : 'none';
+
+  if (page === 'classements') loadStats(true);
+  if (page === 'dresseurs')   loadAdminUsers(true);
+  if (page === 'stats')       loadStatsDashboard(true);
+  if (page === 'communauté')  loadCommunityPokedex();
 }
 
 /* ════════════════════════════════════════════════
@@ -321,6 +337,20 @@ if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
 /* ════════════════════════════════════════════════
    TWITCH OAUTH
 ════════════════════════════════════════════════ */
+const TOKEN_STORAGE_KEY = 'twitch_access_token';
+const OAUTH_STATE_KEY   = 'twitch_oauth_state';
+
+/* Le flow implicite renvoie le token dans le fragment d'URL : sans paramètre
+   `state`, rien ne prouve que la réponse correspond à une demande partie d'ici.
+   Un attaquant peut sinon forcer la victime à se connecter sur SON compte. */
+function createOAuthState() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  const nonce = [...bytes].map(b => b.toString(16).padStart(2, '0')).join('');
+  sessionStorage.setItem(OAUTH_STATE_KEY, nonce);
+  return nonce;
+}
+
 function getTwitchLoginUrl() {
   const params = new URLSearchParams({
     client_id:     CONFIG.twitch.clientId,
@@ -328,28 +358,92 @@ function getTwitchLoginUrl() {
     response_type: 'token',
     scope:         CONFIG.twitch.scopes,
     force_verify:  'false',
+    state:         createOAuthState(),
   });
   return `https://id.twitch.tv/oauth2/authorize?${params}`;
 }
 
+function clearStoredToken() {
+  localStorage.removeItem(TOKEN_STORAGE_KEY);
+  sessionStorage.removeItem(OAUTH_STATE_KEY);
+}
+
+/* Retourne le token utilisable, ou null. Un token arrivant par l'URL n'est
+   accepté que si son `state` correspond au nonce émis par ce navigateur ;
+   sinon il est purement ignoré (jamais stocké) et on retombe sur le token
+   déjà en place, le cas échéant. */
 function getTokenFromHash() {
-  const hash = window.location.hash.substring(1);
-  const params = new URLSearchParams(hash);
-  const token = params.get('access_token');
-  if (token) {
-    localStorage.setItem('twitch_access_token', token);
-    return token;
+  const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+  const params = new URLSearchParams(window.location.hash.substring(1));
+  const urlToken = params.get('access_token');
+
+  if (!urlToken) return storedToken;
+
+  const expectedState = sessionStorage.getItem(OAUTH_STATE_KEY);
+  sessionStorage.removeItem(OAUTH_STATE_KEY);
+
+  if (!expectedState || params.get('state') !== expectedState) {
+    console.error('Réponse OAuth rejetée : paramètre state absent ou invalide');
+    return storedToken;
   }
-  return localStorage.getItem('twitch_access_token');
+
+  localStorage.setItem(TOKEN_STORAGE_KEY, urlToken);
+  return urlToken;
+}
+
+/* Un token du flow implicite peut avoir été émis pour une AUTRE application et
+   injecté ici. /oauth2/validate est le seul moyen de vérifier à qui il
+   appartient réellement — et au passage qu'il n'est pas expiré. */
+async function validateTwitchToken(token) {
+  let res;
+  try {
+    res = await fetch('https://id.twitch.tv/oauth2/validate', {
+      headers: { 'Authorization': `OAuth ${token}` },
+    });
+  } catch (e) {
+    console.error('Validation du token impossible', e);
+    return null;
+  }
+
+  if (!res.ok) return null;
+
+  const data = await res.json();
+
+  if (data.client_id !== CONFIG.twitch.clientId) {
+    console.error('Token émis pour une autre application — rejeté');
+    return null;
+  }
+  if (typeof data.expires_in === 'number' && data.expires_in <= 0) return null;
+
+  return data;
+}
+
+/* Révoque le token côté Twitch : sans ça, la « déconnexion » le laisse valide
+   plusieurs semaines. Best-effort, ne bloque jamais la déconnexion locale. */
+function revokeTwitchToken(token) {
+  if (!token) return;
+  const body = new URLSearchParams({
+    client_id: CONFIG.twitch.clientId,
+    token,
+  });
+  fetch('https://id.twitch.tv/oauth2/revoke', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+    keepalive: true,
+  }).catch(() => {});
 }
 
 async function fetchTwitchUser(token) {
-  const res  = await fetch('https://api.twitch.tv/helix/users', {
+  const res = await fetch('https://api.twitch.tv/helix/users', {
     headers: {
       'Client-ID':     CONFIG.twitch.clientId,
       'Authorization': `Bearer ${token}`,
     }
   });
+
+  if (!res.ok) throw new Error(`Twitch helix/users ${res.status}`);
+
   const data = await res.json();
   return data.data?.[0] || null;
 }
@@ -357,7 +451,7 @@ async function fetchTwitchUser(token) {
 async function fetchTwitchUsersByLogin(logins) {
   if (!state.twitchToken || !logins.length) return {};
 
-  const uniqueLogins = [...new Set(logins.map(l => String(l || '').toLowerCase()).filter(Boolean))];
+  const uniqueLogins = [...new Set(logins.map(normalizeLogin).filter(Boolean))];
   const result = {};
 
   for (let i = 0; i < uniqueLogins.length; i += 100) {
@@ -387,9 +481,22 @@ async function fetchTwitchUsersByLogin(logins) {
 /* ════════════════════════════════════════════════
    SUPABASE
 ════════════════════════════════════════════════ */
+/* Les logins Twitch sont limités à [a-z0-9_]. Tout le reste est refusé avant
+   de construire l'URL : un login venu de la base contenant `&`, `,` ou `.`
+   modifierait sinon les filtres PostgREST de la requête. */
+const TWITCH_LOGIN_RE = /^[a-z0-9_]{1,25}$/;
+
+function normalizeLogin(userLogin) {
+  const login = String(userLogin || '').trim().toLowerCase();
+  return TWITCH_LOGIN_RE.test(login) ? login : null;
+}
+
 async function fetchCaptures(userLogin) {
+  const login = normalizeLogin(userLogin);
+  if (!login) throw new Error(`Login invalide : ${userLogin}`);
+
   return fetchAllSupabaseRows(
-    `${CONFIG.supabase.url}/rest/v1/captures?user_login=eq.${userLogin.toLowerCase()}&select=*`,
+    `${CONFIG.supabase.url}/rest/v1/captures?user_login=eq.${encodeURIComponent(login)}&select=*`,
     {
       'apikey':        CONFIG.supabase.key,
       'Authorization': `Bearer ${CONFIG.supabase.key}`,
@@ -414,33 +521,55 @@ async function fetchGlobalStats() {
 
     document.getElementById('stat-trainers').textContent = trainers;
     document.getElementById('stat-captures').textContent = filteredRows.length;
-  } catch {}
+  } catch (e) {
+    // Les compteurs restent sur "—" plutôt que d'afficher un chiffre faux
+    console.error('Statistiques globales indisponibles', e);
+  }
 }
 
 /* ════════════════════════════════════════════════
    SUPABASE — Pagination complète
 ════════════════════════════════════════════════ */
+/* Un ORDER BY stable est indispensable : sans lui PostgreSQL ne garantit aucun
+   ordre entre deux pages limit/offset, ce qui duplique ou perd des lignes dès
+   que la table dépasse 1000 entrées. `id` est la clé primaire de `captures`,
+   donc un ordre total et indexé. */
+const STABLE_ROW_ORDER = 'id.asc';
+const SUPABASE_PAGE_SIZE = 1000;
+
 async function fetchAllSupabaseRows(baseUrl, baseHeaders) {
-  let all = [];
+  const orderedUrl = baseUrl.includes('order=')
+    ? baseUrl
+    : `${baseUrl}&order=${STABLE_ROW_ORDER}`;
+
+  const all = [];
   let offset = 0;
-  const pageSize = 1000;
+
   while (true) {
-    const url = `${baseUrl}&limit=${pageSize}&offset=${offset}`;
-    try {
-      const res = await fetch(url, {
-        headers: { ...baseHeaders, 'Prefer': 'count=none' },
-      });
-      if (!res.ok) break;
-      const rows = await res.json();
-      if (!rows || !rows.length) break;
-      all.push(...rows);
-      if (rows.length < pageSize) break;
-      offset += pageSize;
-    } catch {
-      break;
+    const res = await fetch(`${orderedUrl}&limit=${SUPABASE_PAGE_SIZE}&offset=${offset}`, {
+      headers: { ...baseHeaders, 'Prefer': 'count=none' },
+    });
+
+    // Ne jamais avaler l'erreur : des données partielles affichées comme
+    // complètes faussent silencieusement tous les compteurs.
+    if (!res.ok) {
+      throw new Error(`Supabase ${res.status} sur ${baseUrl.split('?')[0]}`);
     }
+
+    const rows = await res.json();
+    if (!rows || !rows.length) break;
+
+    all.push(...rows);
+    if (rows.length < SUPABASE_PAGE_SIZE) break;
+    offset += SUPABASE_PAGE_SIZE;
   }
+
   return all;
+}
+
+function showLoadError(el, message) {
+  if (!el) return;
+  el.innerHTML = `<div class="stats-empty">${escapeHtml(message)}</div>`;
 }
 
 /* ════════════════════════════════════════════════
@@ -481,20 +610,67 @@ function formatDate(iso) {
 /* ════════════════════════════════════════════════
    RENDU GRILLE
 ════════════════════════════════════════════════ */
+function getMegaFormsForGeneration(gen) {
+  let count = 0;
+  for (const [rawId, megaData] of Object.entries(MEGA_EVOLUTIONS)) {
+    const id = Number(rawId);
+    if (id < gen.start || id > gen.end) continue;
+    count += Array.isArray(megaData) ? megaData.length : 1;
+  }
+  return count;
+}
+
+function getMegaTotal() {
+  return GENERATIONS.reduce((sum, gen) => sum + getMegaFormsForGeneration(gen), 0);
+}
+
+/* Retourne les formes méga capturées sous forme de clés "id:slug", pour
+   coller exactement à ce que la grille affiche en mode Megadex. */
+function getCapturedMegaForms(captures) {
+  const forms = new Set();
+
+  for (const cap of captures) {
+    if (!cap.is_mega) continue;
+
+    const megaData = MEGA_EVOLUTIONS[cap.pokemon_id];
+    if (!megaData) continue;
+
+    const megaForms = Array.isArray(megaData) ? megaData : [megaData];
+    // Même règle de repli que la grille : sans colonne mega_form, on retombe
+    // sur la première forme déclarée.
+    const slug = cap.mega_form || megaForms[0].slug;
+    if (megaForms.some(f => f.slug === slug)) forms.add(`${cap.pokemon_id}:${slug}`);
+  }
+
+  return forms;
+}
+
 function renderProgressBars() {
-  const capturedIds   = new Set(state.captures.map(c => c.pokemon_id));
-  const capturedCount = capturedIds.size;
-  const globalPercent = Math.round((capturedCount / POKEDEX_TOTAL) * 100);
+  const isMega = state.pokédexMode === 'mega';
+  const capturedMegaForms = isMega ? getCapturedMegaForms(state.captures) : null;
+
+  const capturedCount = isMega
+    ? capturedMegaForms.size
+    : new Set(state.captures.map(c => c.pokemon_id)).size;
+  const globalTotal   = isMega ? getMegaTotal() : POKEDEX_TOTAL;
+  const globalPercent = globalTotal ? Math.round((capturedCount / globalTotal) * 100) : 0;
 
   document.getElementById('progress-fill').style.width  = `${globalPercent}%`;
-  document.getElementById('progress-count').textContent = `${capturedCount} / ${POKEDEX_TOTAL}`;
+  document.getElementById('progress-count').textContent = `${capturedCount} / ${globalTotal}`;
 
   const panel = document.getElementById('generation-progress-panel');
   if (!panel) return;
 
   panel.innerHTML = GENERATIONS.map(gen => {
-    const count = getCapturedCountForGeneration(gen);
-    const total = getGenerationTotal(gen);
+    const total = isMega ? getMegaFormsForGeneration(gen) : getGenerationTotal(gen);
+    if (!total) return '';
+
+    const count = isMega
+      ? [...capturedMegaForms].filter(key => {
+          const id = Number(key.split(':')[0]);
+          return id >= gen.start && id <= gen.end;
+        }).length
+      : getCapturedCountForGeneration(gen);
     const percent = Math.round((count / total) * 100);
 
     return `
@@ -587,7 +763,9 @@ function _renderPokeGrid({
           if (activeFilter === 'captured' && !captured) continue;
           if (activeFilter === 'shiny' && !hasShiny) continue;
           if (['commun','peuCommun','rare','epique','fabuleux','legendaire'].includes(activeFilter) && tier !== activeFilter) continue;
-          if (searchQuery && !name.toLowerCase().includes(searchQuery) && !String(id).includes(searchQuery)) continue;
+          // La recherche doit aussi matcher le nom de la forme ("méga-dracaufeu")
+          const megaSearchTarget = `${name} ${megaForm.nom}`.toLowerCase();
+          if (searchQuery && !megaSearchTarget.includes(searchQuery) && !String(id).includes(searchQuery)) continue;
 
           const spriteUrl = hasShiny ? `${SPRITE_SHINY}${id}.png` : `${SPRITE_BASE}${id}.png`;
 
@@ -603,13 +781,13 @@ function _renderPokeGrid({
           spriteImg.alt = name;
           spriteImg.loading = 'lazy';
           
-          // Extraire le type de forme pour l'affichage (X, Y, Primal, etc.)
-          const formLabel = megaForm.slug.split('-').pop().toUpperCase();
-          const displayFormLabel = formLabel === 'MEGA' ? '' : ` ${formLabel}`;
-          console.log(displayFormLabel)
-          const nameMega = displayFormLabel === ' PRIMAL'
-            ? `Primo ${captured ? name : '???'}`
-            : `Mega ${captured ? name : '???'}${displayFormLabel}`;
+          // Nom francisé de la forme, déclaré dans MEGA_EVOLUTIONS
+          const formSuffix = megaForm.slug.split('-').pop().toUpperCase();
+          const isPrimal   = megaForm.slug.includes('-primal');
+          const hiddenName = `${isPrimal ? 'Primo' : 'Méga'}-???`
+            + (['X', 'Y', 'Z'].includes(formSuffix) ? ` ${formSuffix}` : '');
+          const nameMega   = captured ? megaForm.nom : hiddenName;
+
           card.innerHTML = `
             <div class="poke-sprite-wrap"></div>
             <div class="poke-number">#${String(id).padStart(3, '0')}</div>
@@ -620,7 +798,7 @@ function _renderPokeGrid({
 
           card.tabIndex = 0;
           card.setAttribute('role', 'button');
-          card.setAttribute('aria-label', `Carte ${captured ? name : 'Pokémon inconnu'} ${TIER_LABELS[tier]}`);
+          card.setAttribute('aria-label', `Carte ${captured ? megaForm.nom : 'Méga-Évolution inconnue'} ${TIER_LABELS[tier]}`);
           card.addEventListener('click', () => onCardClick(id, megaCaptures, megaForm.slug));
           card.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -866,23 +1044,10 @@ function trapFocus(element) {
 }
 
 // ─── Navigation entre les vues ────────────────
-document.querySelectorAll('.nav-btn').forEach(btn => {
+// `[data-page]` exclut #back-to-me-btn, qui est un .nav-btn avec son propre handler
+document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
   btn.addEventListener('click', () => {
-    const page = btn.dataset.page;
-
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-
-    document.getElementById('view-pokedex').style.display   = page === 'pokedex'    ? 'block' : 'none';
-    document.getElementById('view-community').style.display = page === 'communauté'  ? 'block' : 'none';
-    document.getElementById('view-stats').style.display     = page === 'stats'      ? 'block' : 'none';
-    document.getElementById('view-rank').style.display      = page === 'classements'    ? 'block' : 'none';
-    document.getElementById('view-admin').style.display     = page === 'dresseurs'      ? 'block' : 'none';
-
-    if (page === 'classements')   loadStats(true);
-    if (page === 'dresseurs')     loadAdminUsers(true);
-    if (page === 'stats')     loadStatsDashboard(true);
-    if (page === 'communauté') loadCommunityPokedex();
+    switchToPage(btn.dataset.page);
     updateUrlState();
   });
 });
@@ -892,14 +1057,21 @@ async function loadStats(forceRefresh = false) {
   const container = document.getElementById('rank-completion');
   container.innerHTML = '<div class="stats-loading">Chargement du classement...</div>';
 
-  if (!state.statsDashCache || forceRefresh) {
-    state.statsDashCache = await fetchAllSupabaseRows(
-      `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id,is_shiny,captured_at`,
-      {
-        'apikey': CONFIG.supabase.key,
-        'Authorization': `Bearer ${CONFIG.supabase.key}`,
-      }
-    );
+  try {
+    if (!state.statsDashCache || forceRefresh) {
+      state.statsDashCache = await fetchAllSupabaseRows(
+        `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id,is_shiny,captured_at`,
+        {
+          'apikey': CONFIG.supabase.key,
+          'Authorization': `Bearer ${CONFIG.supabase.key}`,
+        }
+      );
+    }
+  } catch (e) {
+    console.error(e);
+    showLoadError(container, 'Impossible de charger le classement. Réessaie plus tard.');
+    showLoadError(document.getElementById('sdash-first-capturers'), 'Impossible de charger le classement.');
+    return;
   }
 
   // statsRowsCache pointe sur le même cache — pas de second fetch
@@ -966,13 +1138,30 @@ function renderStatsRanking() {
     .sort((a, b) => b.pokemons.size - a.pokemons.size)
     .slice(0, 10);
 
-  fetchTwitchUsersByLogin(list.map(u => u.login)).then(avatars => {
-    for (const u of list) {
-      u.avatar = avatars[u.login] || '';
-    }
+  renderRankingWithAvatars('rank-completion', list, gen.total);
+}
 
-    renderPodiumRanking('rank-completion', list, gen.total);
-  });
+/* Les avatars arrivent de façon asynchrone : sans jeton de séquence, un
+   changement rapide d'onglet fait gagner la réponse la plus lente et affiche
+   un classement qui ne correspond plus au filtre actif. */
+const _avatarRenderTokens = {};
+
+function renderRankingWithAvatars(containerId, list, total) {
+  const token = (_avatarRenderTokens[containerId] || 0) + 1;
+  _avatarRenderTokens[containerId] = token;
+
+  const isStale = () => _avatarRenderTokens[containerId] !== token;
+
+  fetchTwitchUsersByLogin(list.map(u => u.login))
+    .then(avatars => {
+      if (isStale()) return;
+      for (const u of list) u.avatar = avatars[u.login] || '';
+      renderPodiumRanking(containerId, list, total);
+    })
+    .catch(() => {
+      // Sans avatar on affiche quand même le classement (initiales en repli)
+      if (!isStale()) renderPodiumRanking(containerId, list, total);
+    });
 }
 
 function escapeHtml(value) {
@@ -988,10 +1177,23 @@ function getInitial(name) {
   return escapeHtml(String(name || '?').trim().charAt(0).toUpperCase() || '?');
 }
 
+/* N'accepte qu'une URL https absolue : bloque javascript:, data: et toute
+   valeur inattendue qui serait injectée dans l'attribut src. */
+function safeImageUrl(url) {
+  try {
+    const parsed = new URL(String(url), window.location.origin);
+    return parsed.protocol === 'https:' ? parsed.href : null;
+  } catch {
+    return null;
+  }
+}
+
 function avatarMarkup(user, className) {
   const safeName = escapeHtml(user.name);
-  if (user.avatar) {
-    return `<img class="${className}" src="${user.avatar}" alt="${safeName}">`;
+  const avatar = safeImageUrl(user.avatar);
+
+  if (avatar) {
+    return `<img class="${className}" src="${escapeHtml(avatar)}" alt="${safeName}">`;
   }
   return `<div class="${className} avatar-fallback" aria-label="${safeName}">${getInitial(user.name)}</div>`;
 }
@@ -1027,7 +1229,7 @@ function renderPodiumRanking(containerId, list, total = POKEDEX_TOTAL) {
           <div class="podium-card podium-${place} clickable" data-login="${escapeHtml(u.login)}">
             <div class="podium-rank">${placeLabel}</div>
             ${avatarMarkup(u, 'podium-avatar')}
-            <div class="podium-name stats-user-link" data-login="${escapeHtml(u.login)}" title="${safeName}">${safeName}</div>
+            <div class="podium-name stats-user-link" title="${safeName}">${safeName}</div>
             <div class="podium-score">${completed} / ${total}</div>
             <div class="podium-percent">${percent}% complété</div>
           </div>
@@ -1042,14 +1244,16 @@ function renderPodiumRanking(containerId, list, total = POKEDEX_TOTAL) {
           <div class="ranking-row clickable" data-login="${escapeHtml(u.login)}">
             <span class="rank-pos">#${i + 4}</span>
             ${avatarMarkup(u, 'rank-avatar')}
-            <span class="rank-name stats-user-link" data-login="${escapeHtml(u.login)}" title="${safeName}">${safeName}</span>
+            <span class="rank-name stats-user-link" title="${safeName}">${safeName}</span>
             <span class="rank-value">${u.pokemons.size} / ${total}</span>
           </div>
         `;
       }).join('')}
     </div>
   `;
-  container.querySelectorAll('[data-login]').forEach(el => {
+  // Sélecteur restreint aux conteneurs cliquables : un [data-login] posé aussi
+  // sur le nom imbriqué déclencherait deux fois viewUserPokedex par bubbling.
+  container.querySelectorAll('.podium-card[data-login], .ranking-row[data-login]').forEach(el => {
     el.addEventListener('click', () => {
       const login = el.dataset.login;
 
@@ -1073,15 +1277,25 @@ async function loadCommunityPokedex(forceRefresh = false) {
     return;
   }
 
-  document.getElementById('community-grid').innerHTML = '<div class="grid-skeleton">Chargement...</div>';
+  const grid = document.getElementById('community-grid');
+  grid.innerHTML = '<div class="grid-skeleton">Chargement...</div>';
 
-  const rows = await fetchAllSupabaseRows(
-    `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id,is_shiny,captured_at&order=captured_at.asc`,
-    {
-      'apikey': CONFIG.supabase.key,
-      'Authorization': `Bearer ${CONFIG.supabase.key}`,
-    }
-  );
+  let rows;
+  try {
+    // captured_at seul n'est pas unique : `id` départage et rend la pagination
+    // déterministe (cf. STABLE_ROW_ORDER).
+    rows = await fetchAllSupabaseRows(
+      `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id,is_shiny,captured_at&order=captured_at.asc,id.asc`,
+      {
+        'apikey': CONFIG.supabase.key,
+        'Authorization': `Bearer ${CONFIG.supabase.key}`,
+      }
+    );
+  } catch (e) {
+    console.error(e);
+    showLoadError(grid, 'Impossible de charger le Pokédex communautaire. Réessaie plus tard.');
+    return;
+  }
 
   // On garde uniquement la première capture par pokemon_id (ordre asc = le plus ancien en premier)
   const seen = {};
@@ -1218,13 +1432,7 @@ function renderBestTrainerCommuPanel(gen) {
     return;
   }
 
-  // Fetch avatars then render podium
-  fetchTwitchUsersByLogin(top.map(u => u.login)).then(avatars => {
-    for (const u of top) {
-      u.avatar = avatars[u.login] || '';
-    }
-    renderPodiumRanking('sdash-first-capturers', top, total);
-  });
+  renderRankingWithAvatars('sdash-first-capturers', top, total);
 }
 
 function renderRarityPanel(gen) {
@@ -1307,20 +1515,27 @@ function renderTopPokemonPanel(gen) {
 ════════════════════════════════════════════════ */
 async function loadStatsDashboard(forceRefresh = false) {
   // Charge les données si pas encore en cache
-  if (!state.statsDashCache || forceRefresh) {
-    state.statsDashCache = await fetchAllSupabaseRows(
-      `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id,is_shiny,captured_at`,
-      {
-        'apikey': CONFIG.supabase.key,
-        'Authorization': `Bearer ${CONFIG.supabase.key}`,
-      }
-    );
+  try {
+    if (!state.statsDashCache || forceRefresh) {
+      state.statsDashCache = await fetchAllSupabaseRows(
+        `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id,is_shiny,captured_at`,
+        {
+          'apikey': CONFIG.supabase.key,
+          'Authorization': `Bearer ${CONFIG.supabase.key}`,
+        }
+      );
+    }
+  } catch (e) {
+    console.error(e);
+    showLoadError(document.getElementById('sdash-rarity-list'), 'Statistiques indisponibles.');
+    showLoadError(document.getElementById('sdash-top-pokemon'), 'Statistiques indisponibles.');
+    showLoadError(document.getElementById('sdash-gen-bars'), 'Statistiques indisponibles.');
+    return;
   }
 
   const allRows = state.statsDashCache.filter(r =>
     !EXCLUDED_USER_NAMES.includes(String(r.user_name || '').toLowerCase())
   );
-  const fullRows = [...allRows].sort((a, b) => new Date(b.captured_at) - new Date(a.captured_at));
 
   // ── KPIs ──────────────────────────────────────
   const allCapturedIds = new Set(allRows.map(r => r.pokemon_id));
@@ -1335,27 +1550,19 @@ async function loadStatsDashboard(forceRefresh = false) {
   document.getElementById('kpi-trainers-num').textContent = trainers;
 
   // ── Répartition par rareté ────────────────────
-  renderRarityPanel('all');
-
-  document.querySelectorAll('[data-rarity-gen]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-rarity-gen]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderRarityPanel(btn.dataset.rarityGen);
-    });
-  });
+  // Les listeners de ces onglets sont posés une seule fois (section EVENTS) :
+  // les attacher ici les empilait à chaque visite de la vue Statistiques.
+  document.querySelectorAll('[data-rarity-gen]').forEach(b =>
+    b.classList.toggle('active', b.dataset.rarityGen === state.dashRarityGen)
+  );
+  renderRarityPanel(state.dashRarityGen);
 
   // ── Top pokémon les plus capturés ─────────────
   state.dashAllRows = allRows;
-  renderTopPokemonPanel('all');
-
-  document.querySelectorAll('[data-top-gen]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-top-gen]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderTopPokemonPanel(btn.dataset.topGen);
-    });
-  });
+  document.querySelectorAll('[data-top-gen]').forEach(b =>
+    b.classList.toggle('active', b.dataset.topGen === state.dashTopGen)
+  );
+  renderTopPokemonPanel(state.dashTopGen);
 
   // ── Progression par génération (communauté) ───
   const genBarsEl = document.getElementById('sdash-gen-bars');
@@ -1392,13 +1599,20 @@ async function loadAdminUsers(forceRefresh = false) {
     </div>
   `;
 
-  const rows = await fetchAllSupabaseRows(
-    `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id`,
-    {
-      'apikey': CONFIG.supabase.key,
-      'Authorization': `Bearer ${CONFIG.supabase.key}`,
-    }
-  );
+  let rows;
+  try {
+    rows = await fetchAllSupabaseRows(
+      `${CONFIG.supabase.url}/rest/v1/captures?select=user_login,user_name,pokemon_id`,
+      {
+        'apikey': CONFIG.supabase.key,
+        'Authorization': `Bearer ${CONFIG.supabase.key}`,
+      }
+    );
+  } catch (e) {
+    console.error(e);
+    showLoadError(listEl, 'Impossible de charger la liste des dresseurs. Réessaie plus tard.');
+    return;
+  }
 
   const filteredRows = rows.filter(r =>
     !EXCLUDED_USER_NAMES.includes(
@@ -1487,47 +1701,25 @@ function renderAdminUsers() {
 }
 
 async function viewUserPokedex(user) {
-  const captures = await fetchCaptures(user.login);
+  const isOwnPokedex = !!state.user && user.login === state.user.login.toLowerCase();
+
+  // On navigue d'abord pour que l'état de chargement (ou l'erreur) soit visible
+  showPokedexView({ showBackButton: !isOwnPokedex });
+
+  const grid = document.getElementById('pokedex-grid');
+  grid.innerHTML = '<div class="grid-skeleton">Chargement du Pokédex...</div>';
+
+  let captures;
+  try {
+    captures = await fetchCaptures(user.login);
+  } catch (e) {
+    console.error(e);
+    showLoadError(grid, `Impossible de charger le Pokédex de ${user.name}.`);
+    return;
+  }
 
   state.adminViewingUser = user;
   state.captures = captures;
-
-  state.activeFilter = 'all';
-  state.activeGenFilter = 'all';
-  state.searchQuery = '';
-
-  document.getElementById('filter-search').value = '';
-
-  document.querySelectorAll('.filter-btn').forEach(b =>
-    b.classList.remove('active')
-  );
-
-  document
-    .querySelector('.filter-btn[data-filter="all"]')
-    .classList.add('active');
-
-  document.querySelectorAll('.gen-filter-btn').forEach(b =>
-    b.classList.remove('active')
-  );
-
-  document
-    .querySelector('.gen-filter-btn[data-gen-filter="all"]')
-    .classList.add('active');
-
-  document.querySelectorAll('.nav-btn').forEach(b =>
-    b.classList.remove('active')
-  );
-
-  document
-    .querySelector('.nav-btn[data-page="pokedex"]')
-    .classList.add('active');
-
-  document.getElementById('view-admin').style.display     = 'none';
-  document.getElementById('view-rank').style.display      = 'none';
-  document.getElementById('view-stats').style.display     = 'none';
-  document.getElementById('view-community').style.display = 'none';
-  document.getElementById('view-pokedex').style.display   = 'block';
-  document.getElementById('back-to-me-btn').style.display = user.login !== state.user.login.toLowerCase() ? '' : 'none';
 
   renderGrid();
 }
@@ -1535,12 +1727,32 @@ async function viewUserPokedex(user) {
 /* ════════════════════════════════════════════════
    INIT
 ════════════════════════════════════════════════ */
+/* Ne retire du fragment que le retour OAuth. L'ancienne version effaçait tout
+   le hash, ce qui détruisait l'état de deep-link avant qu'il ne soit lu. */
+function clearOAuthFragment() {
+  if (!window.location.hash.includes('access_token')) return;
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+}
+
+function showLoggedOut(loading) {
+  clearStoredToken();
+  state.user = null;
+  state.twitchToken = null;
+  document.getElementById('page-pokedex').style.display = 'none';
+  document.getElementById('page-landing').style.display = 'flex';
+  // Le lien de connexion embarque un nonce à usage unique : il faut le régénérer
+  document.getElementById('btn-login').href = getTwitchLoginUrl();
+  loading.classList.remove('show');
+}
+
 async function init() {
   const loading = document.getElementById('loading');
 
   fetchGlobalStats();
   document.getElementById('btn-login').href = getTwitchLoginUrl();
 
+  // L'état de navigation doit être lu AVANT le nettoyage du fragment OAuth
+  const pendingUrlState = getUrlState();
   const token = getTokenFromHash();
 
   if (!token) {
@@ -1549,47 +1761,62 @@ async function init() {
     return;
   }
 
+  clearOAuthFragment();
+
+  // Le token doit être validé avant d'être utilisé : il peut être expiré, ou
+  // avoir été émis pour une autre application.
+  const validation = await validateTwitchToken(token);
+  if (!validation) {
+    showLoggedOut(loading);
+    return;
+  }
+
   state.twitchToken = token;
 
-  history.replaceState(null, '', window.location.pathname);
-
+  let user;
   try {
-    const user = await fetchTwitchUser(token);
+    user = await fetchTwitchUser(token);
     if (!user) throw new Error('User not found');
+  } catch (e) {
+    // Échec d'authentification : le token est invalide ou révoqué
+    console.error(e);
+    showLoggedOut(loading);
+    return;
+  }
 
-    state.user = user;
+  state.user = user;
+  document.getElementById('user-avatar').src       = user.profile_image_url;
+  document.getElementById('user-name').textContent = user.display_name;
 
-    document.getElementById('user-avatar').src       = user.profile_image_url;
-    document.getElementById('user-name').textContent = user.display_name;
+  document.getElementById('back-to-me-btn').style.display = 'none';
+  document.getElementById('page-landing').style.display = 'none';
+  document.getElementById('page-pokedex').style.display = 'block';
 
+  let capturesFailed = false;
+  try {
     const [captures] = await Promise.all([
       fetchCaptures(user.login),
       fetchAllNames(),
     ]);
-
-    state.captures = captures;
+    state.captures    = captures;
     state.ownCaptures = captures;
-
-    document.getElementById('back-to-me-btn').style.display = 'none';
-    document.getElementById('page-landing').style.display = 'none';
-    document.getElementById('page-pokedex').style.display = 'block';
-
-    applyUrlState();
-    renderGrid();
-
   } catch (e) {
+    // Une panne Supabase ne doit pas déconnecter l'utilisateur
     console.error(e);
+    capturesFailed = true;
+  }
 
-    localStorage.removeItem('twitch_access_token');
+  loading.classList.remove('show');
 
-    state.user = null;
-    state.twitchToken = null;
+  applyUrlState(pendingUrlState);
 
-    document.getElementById('page-pokedex').style.display = 'none';
-    document.getElementById('page-landing').style.display = 'flex';
-
-  } finally {
-    loading.classList.remove('show');
+  if (capturesFailed) {
+    showLoadError(
+      document.getElementById('pokedex-grid'),
+      'Impossible de charger tes captures. Recharge la page.'
+    );
+  } else {
+    renderGrid();
   }
 }
 
@@ -1597,12 +1824,19 @@ async function init() {
    EVENTS
 ════════════════════════════════════════════════ */
 document.getElementById('btn-logout').addEventListener('click', () => {
-  localStorage.removeItem('twitch_access_token');
+  // Invalide le token côté Twitch, pas seulement dans ce navigateur
+  revokeTwitchToken(state.twitchToken);
+
+  clearStoredToken();
   state.user        = null;
   state.twitchToken = null;
   state.captures    = [];
+  state.ownCaptures = [];
+  state.adminViewingUser = null;
+
   document.getElementById('page-pokedex').style.display = 'none';
   document.getElementById('page-landing').style.display = 'flex';
+  document.getElementById('btn-login').href = getTwitchLoginUrl();
 });
 
 document.querySelectorAll('#view-pokedex .filter-btn').forEach(btn => {
@@ -1640,7 +1874,9 @@ if (progressToggle) {
 }
 
 document.getElementById('filter-search').addEventListener('input', e => {
-  state.searchQuery = e.target.value;
+  // La comparaison se fait sur un nom déjà en minuscules : sans normalisation
+  // ici, taper "Pika" ne renvoyait aucun résultat.
+  state.searchQuery = e.target.value.trim().toLowerCase();
   updateUrlState();
   renderGrid();
 });
@@ -1662,43 +1898,7 @@ document.getElementById('back-to-me-btn').addEventListener('click', () => {
   state.adminViewingUser = null;
   state.captures = state.ownCaptures;
 
-  state.activeFilter = 'all';
-  state.activeGenFilter = 'all';
-  state.searchQuery = '';
-
-  document.getElementById('filter-search').value = '';
-
-  document.querySelectorAll('.filter-btn').forEach(b =>
-    b.classList.remove('active')
-  );
-
-  document
-    .querySelector('.filter-btn[data-filter="all"]')
-    .classList.add('active');
-
-  document.querySelectorAll('.gen-filter-btn').forEach(b =>
-    b.classList.remove('active')
-  );
-
-  document
-    .querySelector('.gen-filter-btn[data-gen-filter="all"]')
-    .classList.add('active');
-
-  document.querySelectorAll('.nav-btn').forEach(b =>
-    b.classList.remove('active')
-  );
-
-  document
-    .querySelector('.nav-btn[data-page="pokedex"]')
-    .classList.add('active');
-
-  document.getElementById('view-admin').style.display     = 'none';
-  document.getElementById('view-rank').style.display      = 'none';
-  document.getElementById('view-stats').style.display     = 'none';
-  document.getElementById('view-community').style.display = 'none';
-  document.getElementById('view-pokedex').style.display   = 'block';
-  document.getElementById('back-to-me-btn').style.display = 'none';
-
+  showPokedexView({ showBackButton: false });
   renderGrid();
 });
 
@@ -1745,9 +1945,28 @@ document.querySelectorAll('#view-community .gen-filter-btn').forEach(btn => {
 });
 
 document.getElementById('community-filter-search').addEventListener('input', e => {
-  state.communitySearch = e.target.value;
+  state.communitySearch = e.target.value.trim().toLowerCase();
   updateUrlState();
   renderCommunityGrid();
+});
+
+// ─── Onglets du tableau de bord Statistiques ──
+document.querySelectorAll('[data-rarity-gen]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-rarity-gen]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.dashRarityGen = btn.dataset.rarityGen;
+    renderRarityPanel(state.dashRarityGen);
+  });
+});
+
+document.querySelectorAll('[data-top-gen]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-top-gen]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.dashTopGen = btn.dataset.topGen;
+    renderTopPokemonPanel(state.dashTopGen);
+  });
 });
 
 // ─── Toggle Pokédex Normal / Mega ─────────────
@@ -1771,6 +1990,15 @@ function resetPokedexFilters() {
     .classList.add('active');
 
   document.getElementById('filter-search').value = '';
+}
+
+/* Bascule sur la vue Pokédex avec des filtres propres.
+   Utilisé par la consultation d'un autre dresseur et par le retour. */
+function showPokedexView({ showBackButton }) {
+  resetPokedexFilters();
+  switchToPage('pokedex');
+  document.getElementById('back-to-me-btn').style.display = showBackButton ? '' : 'none';
+  updateUrlState();
 }
 
 document.getElementById('pokédex-toggle-normal')?.addEventListener('click', () => {
