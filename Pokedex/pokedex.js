@@ -165,6 +165,25 @@ const SPRITE_BASE  = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/s
 const SPRITE_SHINY = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/';
 
 /* ════════════════════════════════════════════════
+   ZARBI — 28 FORMES
+   ────────────────────────────────────────────────
+   Zarbi n'a qu'un id (201) mais 28 formes, stockées dans `captures.form`
+   (slugs « unown-a »… « unown-z », « unown-exclamation », « unown-question »).
+   L'official-artwork n'existe que pour la forme de base — il n'y a pas de
+   201-b.png. Le seul jeu complet par forme est HOME.
+════════════════════════════════════════════════ */
+const UNOWN_ID = 201;
+
+const UNOWN_FORMS = [
+  ...'abcdefghijklmnopqrstuvwxyz'.split('').map(l => ({ slug: `unown-${l}`, label: l.toUpperCase() })),
+  { slug: 'unown-exclamation', label: '!' },
+  { slug: 'unown-question',    label: '?' },
+];
+
+const UNOWN_SPRITE_BASE  = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/';
+const UNOWN_SPRITE_SHINY = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/shiny/';
+
+/* ════════════════════════════════════════════════
    ÉTAT
 ════════════════════════════════════════════════ */
 
@@ -209,7 +228,7 @@ let state = {
   communityFilter: 'all',
   communityGenFilter: 'all',
   communitySearch: '',
-  pokédexMode: 'normal', // 'normal' ou 'mega'
+  pokédexMode: 'normal', // 'normal' | 'mega' | 'unown'
   dashRarityGen: 'all',
   dashTopGen: 'all',
 };
@@ -221,8 +240,10 @@ let _modalLastFocus = null;
 ════════════════════════════════════════════════ */
 const VALID_VIEWS   = ['pokedex', 'communauté', 'stats', 'classements', 'dresseurs'];
 const VALID_FILTERS = ['all', 'captured', 'shiny', 'commun', 'peuCommun', 'rare', 'epique', 'fabuleux', 'legendaire'];
+/* Les filtres qui trient par rareté, par opposition à all/captured/shiny. */
+const TIER_FILTER_KEYS = ['commun', 'peuCommun', 'rare', 'epique', 'fabuleux', 'legendaire'];
 const VALID_GENS    = ['all', '1', '2', '3'];
-const VALID_MODES   = ['normal', 'mega'];
+const VALID_MODES   = ['normal', 'mega', 'unown'];
 
 function pickAllowed(value, allowed, fallback) {
   return allowed.includes(value) ? value : fallback;
@@ -645,14 +666,77 @@ function getCapturedMegaForms(captures) {
   return forms;
 }
 
-function renderProgressBars() {
-  const isMega = state.pokédexMode === 'mega';
-  const capturedMegaForms = isMega ? getCapturedMegaForms(state.captures) : null;
+/* ─── Zarbidex ─────────────────────────────────── */
+function getUnownSpriteUrl(slug, isShiny = false) {
+  // slug « unown-b » → fichier « 201-b.png » côté PokeAPI
+  const suffix = slug.slice('unown-'.length);
+  return `${isShiny ? UNOWN_SPRITE_SHINY : UNOWN_SPRITE_BASE}${UNOWN_ID}-${suffix}.png`;
+}
 
-  const capturedCount = isMega
-    ? capturedMegaForms.size
-    : new Set(state.captures.map(c => c.pokemon_id)).size;
-  const globalTotal   = isMega ? getMegaTotal() : POKEDEX_TOTAL;
+function getUnownTotal() {
+  return UNOWN_FORMS.length;
+}
+
+/* Écrit un mot en alphabet Zarbi dans chaque `[data-unown-word]`.
+   Sprites normaux, sans retouche de couleur. Le texte lisible reste porté par
+   l'aria-label du parent, les images sont purement décoratives. */
+function renderUnownWords() {
+  document.querySelectorAll('[data-unown-word]').forEach(el => {
+    const word = String(el.dataset.unownWord || '').toLowerCase();
+    el.innerHTML = '';
+
+    for (const char of word) {
+      const form = UNOWN_FORMS.find(f => f.label.toLowerCase() === char);
+      if (!form) continue;   // espace, ponctuation non couverte : simplement ignoré
+      const img = document.createElement('img');
+      img.src = getUnownSpriteUrl(form.slug, false);
+      img.alt = '';
+      // Pas de loading="lazy" : le bouton naît caché, et un chargement différé
+      // le ferait apparaître vide puis s'élargir d'un coup au premier affichage.
+      el.appendChild(img);
+    }
+  });
+}
+
+function isUnownCapture(cap) {
+  return Number(cap.pokemon_id) === UNOWN_ID;
+}
+
+/* Le Zarbidex n'apparaît qu'aux dresseurs concernés. On teste la présence d'un
+   Zarbi quelconque, pas d'une forme : les captures d'avant la colonne `form`
+   ont `form = null` et doivent quand même ouvrir l'onglet. */
+function hasAnyUnown(captures) {
+  return captures.some(isUnownCapture);
+}
+
+/* Formes réellement identifiées. Un Zarbi sans `form` (capturé avant la
+   migration) ne peut être rattaché à aucune lettre : il ne compte nulle part
+   dans la grille, sinon il cocherait une case au hasard. */
+function getCapturedUnownForms(captures) {
+  const forms = new Set();
+  for (const cap of captures) {
+    if (!isUnownCapture(cap) || !cap.form) continue;
+    if (UNOWN_FORMS.some(f => f.slug === cap.form)) forms.add(cap.form);
+  }
+  return forms;
+}
+
+function getUnownCapturesForForm(captures, slug) {
+  return captures.filter(c => isUnownCapture(c) && c.form === slug);
+}
+
+function renderProgressBars() {
+  const isMega  = state.pokédexMode === 'mega';
+  const isUnown = state.pokédexMode === 'unown';
+  const capturedMegaForms  = isMega  ? getCapturedMegaForms(state.captures)  : null;
+  const capturedUnownForms = isUnown ? getCapturedUnownForms(state.captures) : null;
+
+  const capturedCount = isMega  ? capturedMegaForms.size
+                      : isUnown ? capturedUnownForms.size
+                      : new Set(state.captures.map(c => c.pokemon_id)).size;
+  const globalTotal   = isMega  ? getMegaTotal()
+                      : isUnown ? getUnownTotal()
+                      : POKEDEX_TOTAL;
   const globalPercent = globalTotal ? Math.round((capturedCount / globalTotal) * 100) : 0;
 
   document.getElementById('progress-fill').style.width  = `${globalPercent}%`;
@@ -660,6 +744,14 @@ function renderProgressBars() {
 
   const panel = document.getElementById('generation-progress-panel');
   if (!panel) return;
+
+  /* Zarbidex : les 28 formes sont toutes en Gen 2, le détail par génération ne
+     ferait que répéter le compteur global. Le bouton « Détails » est masqué en
+     parallèle par syncPokedexMode(). */
+  if (isUnown) {
+    panel.innerHTML = '';
+    return;
+  }
 
   panel.innerHTML = GENERATIONS.map(gen => {
     const total = isMega ? getMegaFormsForGeneration(gen) : getGenerationTotal(gen);
@@ -762,7 +854,7 @@ function _renderPokeGrid({
 
           if (activeFilter === 'captured' && !captured) continue;
           if (activeFilter === 'shiny' && !hasShiny) continue;
-          if (['commun','peuCommun','rare','epique','fabuleux','legendaire'].includes(activeFilter) && tier !== activeFilter) continue;
+          if (TIER_FILTER_KEYS.includes(activeFilter) && tier !== activeFilter) continue;
           // La recherche doit aussi matcher le nom de la forme ("méga-dracaufeu")
           const megaSearchTarget = `${name} ${megaForm.nom}`.toLowerCase();
           if (searchQuery && !megaSearchTarget.includes(searchQuery) && !String(id).includes(searchQuery)) continue;
@@ -828,7 +920,7 @@ function _renderPokeGrid({
 
         if (activeFilter === 'captured' && !captured) continue;
         if (activeFilter === 'shiny' && !hasShiny) continue;
-        if (['commun','peuCommun','rare','epique','fabuleux','legendaire'].includes(activeFilter) && tier !== activeFilter) continue;
+        if (TIER_FILTER_KEYS.includes(activeFilter) && tier !== activeFilter) continue;
         if (searchQuery && !name.toLowerCase().includes(searchQuery) && !String(id).includes(searchQuery)) continue;
 
         const spriteUrl = hasShiny ? `${SPRITE_SHINY}${id}.png` : `${SPRITE_BASE}${id}.png`;
@@ -875,6 +967,72 @@ function _renderPokeGrid({
   Promise.all(megaSpritePromises).catch(() => {});
 }
 
+/* Grille du Zarbidex : 28 cartes, une par forme.
+   Fonction séparée plutôt qu'une troisième branche dans _renderPokeGrid : celle-ci
+   itère sur les générations puis sur les ids, alors que tout le Zarbidex tient sur
+   un seul id. Le filtre de génération est masqué dans ce mode (cf. syncPokedexMode). */
+function _renderUnownGrid({
+  grid,
+  getCapturesForForm,
+  onProgressBars,
+  onCardClick,
+}) {
+  onProgressBars();
+  grid.innerHTML = '';
+
+  const tier     = POKEMON_TIERS[UNOWN_ID];
+  const baseName = state.names[UNOWN_ID] || 'Zarbi';
+
+  /* Pas de `.generation-title` : le bandeau « Zarbidex » et son filet horizontal
+     séparent des générations, or il n'y en a qu'une seule ici et l'onglet actif
+     dit déjà où on est. */
+  const section = document.createElement('section');
+  section.className = 'generation-section';
+  section.innerHTML = '<div class="generation-grid"></div>';
+  const genGrid = section.querySelector('.generation-grid');
+
+  for (const form of UNOWN_FORMS) {
+    const formCaptures = getCapturesForForm(form.slug);
+    const captured = formCaptures.length > 0;
+    const hasShiny = formCaptures.some(c => c.is_shiny);
+    const date     = formCaptures[0]?.captured_at;
+    const fullName = `${baseName} ${form.label}`;
+
+    // Aucun filtrage : la barre de filtres et la recherche sont masquées dans ce
+    // mode, les 28 formes s'affichent toujours toutes.
+    const card = document.createElement('div');
+    card.className = `poke-card r-${tier}${captured ? ' captured' : ''}${hasShiny ? ' shiny-card' : ''}`;
+    card.dataset.id = UNOWN_ID;
+    card.dataset.unownForm = form.slug;
+
+    /* Ni numéro ni nom : les 28 cartes partagent le #201 et le même « Zarbi »,
+       les répéter n'apprend rien. La lettre se lit dans la silhouette, et la
+       modale donne le nom complet. L'alt de l'image et l'aria-label de la carte
+       portent l'information pour les lecteurs d'écran. */
+    card.innerHTML = `
+      <div class="poke-sprite-wrap">
+        <img class="poke-sprite" src="${getUnownSpriteUrl(form.slug, hasShiny)}" alt="${escapeHtml(fullName)}" loading="lazy">
+      </div>
+      ${captured ? `<div class="poke-date">${formatDate(date)}</div>` : ''}
+    `;
+
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', `Carte ${captured ? fullName : 'forme de Zarbi inconnue'} ${TIER_LABELS[tier]}`);
+    card.addEventListener('click', () => onCardClick(form.slug, formCaptures));
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onCardClick(form.slug, formCaptures);
+      }
+    });
+
+    genGrid.appendChild(card);
+  }
+
+  grid.appendChild(section);
+}
+
 function getMegaEvolution(pokemonId) {
   const mega = MEGA_EVOLUTIONS[pokemonId] || null;
   if (!mega) return null;
@@ -914,7 +1072,65 @@ async function getMegaSpriteUrl(pokemonId, megaForm = null, isShiny = false) {
   }
 }
 
+/* Accorde l'UI au mode courant, et fait retomber en « normal » un mode Zarbidex
+   que le dresseur affiché n'a pas le droit de voir — cas d'un deep-link
+   `#mode=unown` ou d'un retour sur le Pokédex d'un autre dresseur sans Zarbi. */
+function syncPokedexMode() {
+  const unownBtn = document.getElementById('pokédex-toggle-unown');
+  const showUnown = hasAnyUnown(state.captures);
+
+  if (unownBtn) unownBtn.style.display = showUnown ? '' : 'none';
+  if (!showUnown && state.pokédexMode === 'unown') state.pokédexMode = 'normal';
+
+  document.querySelectorAll('.pokedex-view-toggle .toggle-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.toggle === state.pokédexMode);
+  });
+
+  /* Toutes les formes de Zarbi sont en Gen 2 : le filtre de génération n'aurait que
+     des réponses vides à offrir, et le détail par génération répéterait à
+     l'identique le compteur global. Les deux disparaissent dans ce mode. */
+  const isUnown = state.pokédexMode === 'unown';
+
+  const genFilters = document.querySelector('#view-pokedex .generation-filters');
+  if (genFilters) genFilters.style.display = isUnown ? 'none' : '';
+
+  const detailsToggle = document.getElementById('progress-toggle');
+  const detailsPanel  = document.getElementById('generation-progress-panel');
+  if (detailsToggle) {
+    detailsToggle.style.display = isUnown ? 'none' : '';
+    // Replié, sinon on quitterait le mode avec un bouton fermé et un panneau ouvert
+    if (isUnown) {
+      detailsToggle.classList.remove('open');
+      detailsToggle.setAttribute('aria-expanded', 'false');
+    }
+  }
+  if (detailsPanel && isUnown) detailsPanel.style.display = 'none';
+
+  /* Filtres et recherche disparaissent aussi : 28 cartes tiennent à l'écran d'un
+     coup, et elles partagent toutes la rareté de Zarbi. */
+  const filters = document.querySelector('#view-pokedex .filters');
+  if (filters) filters.style.display = isUnown ? 'none' : '';
+
+  /* Un deep-link `#pokedex?filter=rare&mode=unown` laisserait sinon un filtre
+     actif mais invisible, et une grille vide sans explication. */
+  if (isUnown && (state.activeFilter !== 'all' || state.searchQuery)) {
+    resetPokedexFilters();
+  }
+}
+
 function renderGrid() {
+  syncPokedexMode();
+
+  if (state.pokédexMode === 'unown') {
+    _renderUnownGrid({
+      grid: document.getElementById('pokedex-grid'),
+      getCapturesForForm: (slug) => getUnownCapturesForForm(state.captures, slug),
+      onProgressBars: renderProgressBars,
+      onCardClick: (slug, formCaptures) => openUnownModal(slug, formCaptures),
+    });
+    return;
+  }
+
   const capMap = buildCaptureMap();
   _renderPokeGrid({
     grid: document.getElementById('pokedex-grid'),
@@ -1007,6 +1223,54 @@ async function openModal(id, captures, megaForm = null) {
   document.getElementById('modal-close').focus();
 
   // Trap focus inside the modal
+  trapFocus(overlay);
+}
+
+/* Modale d'une forme de Zarbi. Réutilise le même DOM qu'openModal, mais sans
+   passer par les branches méga ni par le sprite official-artwork, qui n'existe
+   pas par forme. */
+function openUnownModal(slug, formCaptures = []) {
+  const form     = UNOWN_FORMS.find(f => f.slug === slug);
+  if (!form) return;
+
+  const baseName = state.names[UNOWN_ID] || 'Zarbi';
+  const tier     = POKEMON_TIERS[UNOWN_ID];
+  const captured = formCaptures.length > 0;
+  const hasShiny = formCaptures.some(c => c.is_shiny);
+
+  const sprite = document.getElementById('modal-sprite');
+  sprite.src       = getUnownSpriteUrl(slug, hasShiny);
+  sprite.className = `modal-sprite${captured ? '' : ' silhouette'}`;
+
+  document.getElementById('modal-name').textContent   = captured ? `${baseName} ${form.label}` : '???';
+  document.getElementById('modal-number').textContent = `#${String(UNOWN_ID).padStart(3, '0')}`;
+
+  const badges = document.getElementById('modal-badges');
+  badges.innerHTML = '';
+
+  const tb = document.createElement('span');
+  tb.className   = `modal-badge modal-badge-${tier}`;
+  tb.textContent = `${TIER_STARS[tier]} ${TIER_LABELS[tier]}`;
+  badges.appendChild(tb);
+
+  if (hasShiny) {
+    const sb = document.createElement('span');
+    sb.className = 'modal-badge modal-badge-shiny';
+    sb.innerHTML = '✨ Shiny';
+    badges.appendChild(sb);
+  }
+
+  const info = document.getElementById('modal-info');
+  info.innerHTML = captured
+    ? formCaptures
+        .map(c => `<div class="poke-date" style="margin-top:6px">${c.is_shiny ? '✨ ' : ''}Capturé le ${formatDate(c.captured_at)}</div>`)
+        .join('')
+    : '<div class="modal-not-captured">Pas encore capturé</div>';
+
+  const overlay = document.getElementById('modal-overlay');
+  _modalLastFocus = document.activeElement;
+  overlay.classList.add('open');
+  document.getElementById('modal-close').focus();
   trapFocus(overlay);
 }
 
@@ -2014,6 +2278,17 @@ document.getElementById('pokédex-toggle-mega')?.addEventListener('click', () =>
   document.querySelectorAll('.pokedex-view-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('pokédex-toggle-mega').classList.add('active');
   state.pokédexMode = 'mega';
+  resetPokedexFilters();
+  updateUrlState();
+  renderGrid();
+});
+
+renderUnownWords();
+
+document.getElementById('pokédex-toggle-unown')?.addEventListener('click', () => {
+  document.querySelectorAll('.pokedex-view-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('pokédex-toggle-unown').classList.add('active');
+  state.pokédexMode = 'unown';
   resetPokedexFilters();
   updateUrlState();
   renderGrid();
