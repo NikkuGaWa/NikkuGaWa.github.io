@@ -70,6 +70,13 @@
       <div class="pokedex-view-toggle">
         <button class="toggle-btn active" id="pokédex-toggle-normal" data-toggle="normal">Pokédex</button>
         <button class="toggle-btn" id="pokédex-toggle-mega" data-toggle="mega">Megadex <img src="https://archives.bulbagarden.net/media/upload/c/cd/Mega_Evolution_key_stone_icon.png" alt="Keystone" class="keystone-icon" style="display:inline-block; width:16px; height:16px; margin-left:4px; vertical-align:middle;"></button>
+        <!-- Révélé par syncPokedexMode() uniquement si le dresseur possède au moins un Zarbi.
+             Le libellé est écrit en alphabet Zarbi, monté par renderUnownWords() ;
+             aria-label porte le texte lisible pour les lecteurs d'écran. -->
+        <button class="toggle-btn" id="pokédex-toggle-unown" data-toggle="unown" style="display:none"
+                aria-label="Zarbidex" title="Zarbidex">
+          <span class="unown-word" data-unown-word="zarbidex" aria-hidden="true"></span>
+        </button>
       </div>
       <div class="progress-bar-wrap">
         <div class="progress-inner">
