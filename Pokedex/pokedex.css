@@ -370,6 +370,25 @@ body::before {
   box-shadow: 0 0 12px rgba(240,208,80,0.1);
 }
 
+/* ─── Mot écrit en alphabet Zarbi ─────────────── */
+/* Les glyphes remplacent le texte du bouton : on reprend le jeu d'opacité des
+   états du bouton pour qu'ils réagissent comme un libellé normal. */
+.unown-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  opacity: 0.7;
+  transition: opacity .2s;
+}
+.unown-word img {
+  height: 20px;
+  width: auto;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+.toggle-btn:hover .unown-word,
+.toggle-btn.active .unown-word { opacity: 1; }
+
 /* ─── Progress ───────────────────────────────── */
 .progress-bar-wrap {
   background: var(--bg2);
