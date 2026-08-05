@@ -198,6 +198,14 @@ function getGenerationTotal(gen) {
   return gen.end - gen.start + 1;
 }
 
+/* La base contient des captures hors du Pokédex affiché (essais sur des
+   générations ultérieures). La grille s'arrête à POKEDEX_TOTAL, les compteurs
+   doivent donc les ignorer aussi — sans ça on affiche « 388 / 386 ». */
+function isInPokedex(id) {
+  const numId = Number(id);
+  return Number.isInteger(numId) && numId >= 1 && numId <= POKEDEX_TOTAL;
+}
+
 function getVisibleGenerations() {
   if (state.activeGenFilter === 'all') return GENERATIONS;
   return GENERATIONS.filter(gen => String(gen.id) === String(state.activeGenFilter));
@@ -733,7 +741,7 @@ function renderProgressBars() {
 
   const capturedCount = isMega  ? capturedMegaForms.size
                       : isUnown ? capturedUnownForms.size
-                      : new Set(state.captures.map(c => c.pokemon_id)).size;
+                      : new Set(state.captures.map(c => c.pokemon_id).filter(isInPokedex)).size;
   const globalTotal   = isMega  ? getMegaTotal()
                       : isUnown ? getUnownTotal()
                       : POKEDEX_TOTAL;
@@ -1573,7 +1581,7 @@ async function loadCommunityPokedex(forceRefresh = false) {
 }
 
 function renderCommunityProgressBars() {
-  const capturedIds = new Set(Object.keys(state.communityCaptures).map(Number));
+  const capturedIds = new Set(Object.keys(state.communityCaptures).map(Number).filter(isInPokedex));
   const count = capturedIds.size;
   const pct   = Math.round((count / POKEDEX_TOTAL) * 100);
 
@@ -1802,7 +1810,7 @@ async function loadStatsDashboard(forceRefresh = false) {
   );
 
   // ── KPIs ──────────────────────────────────────
-  const allCapturedIds = new Set(allRows.map(r => r.pokemon_id));
+  const allCapturedIds = new Set(allRows.map(r => r.pokemon_id).filter(isInPokedex));
   state.dashCapturedIds = allCapturedIds;
   const shinies = allRows.filter(r => r.is_shiny);
   const trainers = new Set(allRows.map(r => r.user_login)).size;
@@ -1899,7 +1907,7 @@ async function loadAdminUsers(forceRefresh = false) {
       };
     }
 
-    users[login].pokemons.add(r.pokemon_id);
+    if (isInPokedex(r.pokemon_id)) users[login].pokemons.add(Number(r.pokemon_id));
   }
 
   state.adminUsers = Object.values(users)
@@ -2004,8 +2012,6 @@ function showLoggedOut(loading) {
   state.twitchToken = null;
   document.getElementById('page-pokedex').style.display = 'none';
   document.getElementById('page-landing').style.display = 'flex';
-  // Le lien de connexion embarque un nonce à usage unique : il faut le régénérer
-  document.getElementById('btn-login').href = getTwitchLoginUrl();
   loading.classList.remove('show');
 }
 
@@ -2013,7 +2019,6 @@ async function init() {
   const loading = document.getElementById('loading');
 
   fetchGlobalStats();
-  document.getElementById('btn-login').href = getTwitchLoginUrl();
 
   // L'état de navigation doit être lu AVANT le nettoyage du fragment OAuth
   const pendingUrlState = getUrlState();
@@ -2100,7 +2105,15 @@ document.getElementById('btn-logout').addEventListener('click', () => {
 
   document.getElementById('page-pokedex').style.display = 'none';
   document.getElementById('page-landing').style.display = 'flex';
-  document.getElementById('btn-login').href = getTwitchLoginUrl();
+});
+
+/* Le nonce OAuth est créé ICI, au clic — surtout pas au chargement de la page.
+   Sinon le retour de Twitch recharge la page, régénère un nonce, et la
+   comparaison avec celui reçu dans l'URL échoue systématiquement : plus
+   personne ne peut se connecter. */
+document.getElementById('btn-login').addEventListener('click', (e) => {
+  e.preventDefault();
+  window.location.href = getTwitchLoginUrl();
 });
 
 document.querySelectorAll('#view-pokedex .filter-btn').forEach(btn => {
