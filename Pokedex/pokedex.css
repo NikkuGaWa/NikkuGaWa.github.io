@@ -597,6 +597,12 @@ body::before {
 .poke-card.captured .poke-sprite {
   filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
 }
+/* Filtre « Non capturés » : les sprites sont révélés pour qu'on voie ce qu'il
+   reste à attraper. Les noms, eux, restent masqués (« ??? ») — c'est le JS qui
+   les gère, rien à faire ici. */
+.pokedex-grid.reveal-sprites .poke-card:not(.captured) .poke-sprite {
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+}
 .poke-card:hover .poke-sprite { transform: scale(1.08); }
 
 
