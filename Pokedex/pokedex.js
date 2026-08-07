@@ -247,7 +247,7 @@ let _modalLastFocus = null;
    DEEP-LINKING (URL HASH)
 ════════════════════════════════════════════════ */
 const VALID_VIEWS   = ['pokedex', 'communauté', 'stats', 'classements', 'dresseurs'];
-const VALID_FILTERS = ['all', 'captured', 'shiny', 'commun', 'peuCommun', 'rare', 'epique', 'fabuleux', 'legendaire'];
+const VALID_FILTERS = ['all', 'captured', 'uncaptured', 'shiny', 'commun', 'peuCommun', 'rare', 'epique', 'fabuleux', 'legendaire'];
 /* Les filtres qui trient par rareté, par opposition à all/captured/shiny. */
 const TIER_FILTER_KEYS = ['commun', 'peuCommun', 'rare', 'epique', 'fabuleux', 'legendaire'];
 const VALID_GENS    = ['all', '1', '2', '3'];
@@ -800,6 +800,10 @@ function _renderPokeGrid({
   onProgressBars();
   grid.innerHTML = '';
 
+  // En mode « Non capturés », on révèle les sprites (cf. .reveal-sprites en CSS).
+  // Les noms restent en « ??? » : c'est le rendu des cartes qui s'en charge.
+  grid.classList.toggle('reveal-sprites', activeFilter === 'uncaptured');
+
   let displayedCount = 0;
   const megaSpritePromises = [];
 
@@ -861,6 +865,7 @@ function _renderPokeGrid({
           const date = formCaptures[0]?.captured_at;
 
           if (activeFilter === 'captured' && !captured) continue;
+          if (activeFilter === 'uncaptured' && captured) continue;
           if (activeFilter === 'shiny' && !hasShiny) continue;
           if (TIER_FILTER_KEYS.includes(activeFilter) && tier !== activeFilter) continue;
           // La recherche doit aussi matcher le nom de la forme ("méga-dracaufeu")
@@ -927,6 +932,7 @@ function _renderPokeGrid({
         const date = Array.isArray(capInfo) ? capInfo[0]?.captured_at : capInfo?.captured_at;
 
         if (activeFilter === 'captured' && !captured) continue;
+        if (activeFilter === 'uncaptured' && captured) continue;
         if (activeFilter === 'shiny' && !hasShiny) continue;
         if (TIER_FILTER_KEYS.includes(activeFilter) && tier !== activeFilter) continue;
         if (searchQuery && !name.toLowerCase().includes(searchQuery) && !String(id).includes(searchQuery)) continue;
