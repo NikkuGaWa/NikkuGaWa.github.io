@@ -184,6 +184,38 @@ const UNOWN_SPRITE_BASE  = 'https://raw.githubusercontent.com/PokeAPI/sprites/ma
 const UNOWN_SPRITE_SHINY = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/shiny/';
 
 /* ════════════════════════════════════════════════
+   FORMDEX — FORMES ALTERNATIVES (HORS MÉGA)
+   ────────────────────────────────────────────────
+   Copie locale du registre POKEMON_FORMS de l'overlay : les slugs sont ceux
+   écrits dans `captures.form`. Ajouter une espèce = une entrée ici, rien d'autre.
+   Grille, compteurs, panneau de détail et recherche s'en déduisent tout seuls.
+
+   `artId` = id de la variante côté PokeAPI, celui qui porte l'official-artwork
+   de la forme (10013 = Morphéo Solaire…). Le sprite de la carte s'en déduit ;
+   c'est la seule donnée qu'il faut aller chercher en ajoutant une espèce.
+════════════════════════════════════════════════ */
+const POKEMON_FORMS = {
+  351: [
+    { slug: 'castform',       nom: 'Morphéo',              artId: 351 },
+    { slug: 'castform-sunny', nom: 'Morphéo Solaire',      artId: 10013 },
+    { slug: 'castform-rainy', nom: 'Morphéo Eau de Pluie', artId: 10014 },
+    { slug: 'castform-snowy', nom: 'Morphéo Blizzard',     artId: 10015 },
+  ],
+  386: [
+    { slug: 'deoxys-normal',  nom: 'Deoxys Normal',  artId: 386 },
+    { slug: 'deoxys-attack',  nom: 'Deoxys Attaque', artId: 10001 },
+    { slug: 'deoxys-defense', nom: 'Deoxys Défense', artId: 10002 },
+    { slug: 'deoxys-speed',   nom: 'Deoxys Vitesse', artId: 10003 },
+  ],
+};
+
+/* Zarbi est dans le registre de l'overlay mais a déjà son Zarbidex : 28 lettres
+   dans le Formdex écraseraient les autres espèces, et son official-artwork
+   n'existe pas par forme. L'exclusion est explicite pour qu'une resynchro du
+   registre depuis l'overlay ne le réintroduise pas par surprise. */
+const FORMDEX_EXCLUDED_IDS = new Set([UNOWN_ID]);
+
+/* ════════════════════════════════════════════════
    ÉTAT
 ════════════════════════════════════════════════ */
 
@@ -236,9 +268,12 @@ let state = {
   communityFilter: 'all',
   communityGenFilter: 'all',
   communitySearch: '',
-  pokédexMode: 'normal', // 'normal' | 'mega' | 'unown'
+  pokédexMode: 'normal', // 'normal' | 'mega' | 'form' | 'unown'
   dashRarityGen: 'all',
   dashTopGen: 'all',
+  // Filtres de la ligne « apparitions », partagés par ses deux panneaux
+  spawnGen: 'all',
+  spawnTier: 'all',
 };
 
 let _modalLastFocus = null;
@@ -251,7 +286,7 @@ const VALID_FILTERS = ['all', 'captured', 'uncaptured', 'shiny', 'commun', 'peuC
 /* Les filtres qui trient par rareté, par opposition à all/captured/shiny. */
 const TIER_FILTER_KEYS = ['commun', 'peuCommun', 'rare', 'epique', 'fabuleux', 'legendaire'];
 const VALID_GENS    = ['all', '1', '2', '3'];
-const VALID_MODES   = ['normal', 'mega', 'unown'];
+const VALID_MODES   = ['normal', 'mega', 'form', 'unown'];
 
 function pickAllowed(value, allowed, fallback) {
   return allowed.includes(value) ? value : fallback;
@@ -733,17 +768,83 @@ function getUnownCapturesForForm(captures, slug) {
   return captures.filter(c => isUnownCapture(c) && c.form === slug);
 }
 
+/* ─── Formdex ──────────────────────────────────── */
+/* Les espèces à formes réellement affichées, ordonnées par numéro : une section
+   de grille et une ligne de détail par entrée. Tout le mode passe par ici, donc
+   l'exclusion de Zarbi et le garde-fou du Pokédex ne sont écrits qu'une fois. */
+function getFormdexSpecies() {
+  return Object.entries(POKEMON_FORMS)
+    .map(([id, forms]) => ({ id: Number(id), forms }))
+    .filter(species => !FORMDEX_EXCLUDED_IDS.has(species.id) && isInPokedex(species.id))
+    .sort((a, b) => a.id - b.id);
+}
+
+function getFormSpriteUrl(form, isShiny = false) {
+  return `${isShiny ? SPRITE_SHINY : SPRITE_BASE}${form.artId}.png`;
+}
+
+function getFormTotal() {
+  return getFormdexSpecies().reduce((sum, species) => sum + species.forms.length, 0);
+}
+
+/* Formes capturées sous forme de clés « id:slug », comme le Megadex : deux
+   espèces pourraient un jour partager un suffixe de slug.
+   Une capture à `form = null` (antérieure à la colonne) ne coche rien — on ne
+   peut pas lui attribuer une forme au hasard. Même règle qu'au Zarbidex. */
+function getCapturedForms(captures) {
+  const knownSlugs = new Map(
+    getFormdexSpecies().map(species => [species.id, new Set(species.forms.map(f => f.slug))])
+  );
+
+  const captured = new Set();
+  for (const cap of captures) {
+    const id = Number(cap.pokemon_id);
+    const slugs = knownSlugs.get(id);
+    if (!slugs || !cap.form || !slugs.has(cap.form)) continue;
+    captured.add(`${id}:${cap.form}`);
+  }
+  return captured;
+}
+
+function getFormCaptures(captures, id, slug) {
+  return captures.filter(c => Number(c.pokemon_id) === id && c.form === slug);
+}
+
+/* Le Formdex n'apparaît qu'aux dresseurs concernés. On teste la possession de
+   l'espèce, pas d'une forme identifiée : une capture d'avant la colonne `form`
+   compte quand même comme un Morphéo, et doit ouvrir l'onglet. Même règle
+   qu'au Zarbidex (`hasAnyUnown`). */
+function hasAnyFormSpecies(captures) {
+  const speciesIds = new Set(getFormdexSpecies().map(s => s.id));
+  return captures.some(c => speciesIds.has(Number(c.pokemon_id)));
+}
+
+/* Le bandeau de section porte déjà le nom de l'espèce : la carte ne garde que ce
+   qui distingue la forme (« Blizzard », « Attaque »). La forme de base, dont le
+   nom EST celui de l'espèce, ne laisse rien après retrait — elle s'annonce
+   « Base ». Un nom de forme qui ne commencerait pas par l'espèce est gardé tel quel. */
+function getFormShortLabel(form, speciesName) {
+  const short = form.nom.startsWith(speciesName)
+    ? form.nom.slice(speciesName.length).trim()
+    : form.nom;
+  return short || 'Base';
+}
+
 function renderProgressBars() {
   const isMega  = state.pokédexMode === 'mega';
   const isUnown = state.pokédexMode === 'unown';
+  const isForm  = state.pokédexMode === 'form';
   const capturedMegaForms  = isMega  ? getCapturedMegaForms(state.captures)  : null;
   const capturedUnownForms = isUnown ? getCapturedUnownForms(state.captures) : null;
+  const capturedAltForms   = isForm  ? getCapturedForms(state.captures)      : null;
 
   const capturedCount = isMega  ? capturedMegaForms.size
                       : isUnown ? capturedUnownForms.size
+                      : isForm  ? capturedAltForms.size
                       : new Set(state.captures.map(c => c.pokemon_id).filter(isInPokedex)).size;
   const globalTotal   = isMega  ? getMegaTotal()
                       : isUnown ? getUnownTotal()
+                      : isForm  ? getFormTotal()
                       : POKEDEX_TOTAL;
   const globalPercent = globalTotal ? Math.round((capturedCount / globalTotal) * 100) : 0;
 
@@ -758,6 +859,31 @@ function renderProgressBars() {
      parallèle par syncPokedexMode(). */
   if (isUnown) {
     panel.innerHTML = '';
+    return;
+  }
+
+  /* Formdex : le détail se lit par espèce, pas par génération — le découpage de
+     la grille est le même. Une espèce à formes toutes capturées reste affichée,
+     c'est ce qui rend la progression lisible d'un coup d'œil. */
+  if (isForm) {
+    panel.innerHTML = getFormdexSpecies().map(species => {
+      const total = species.forms.length;
+      const count = species.forms.filter(f => capturedAltForms.has(`${species.id}:${f.slug}`)).length;
+      const percent = Math.round((count / total) * 100);
+      const name = state.names[species.id] || `#${species.id}`;
+
+      return `
+        <div class="generation-progress-row">
+          <div class="generation-progress-head">
+            <span>${escapeHtml(name)}</span>
+            <strong>${count} / ${total}</strong>
+          </div>
+          <div class="generation-progress-track">
+            <div class="generation-progress-fill" style="width:${percent}%"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
     return;
   }
 
@@ -1047,6 +1173,93 @@ function _renderUnownGrid({
   grid.appendChild(section);
 }
 
+/* Grille du Formdex : une section par espèce à formes, bandeau au nom de
+   l'espèce là où le Pokédex écrit « Génération X ». Fonction séparée pour la
+   même raison que le Zarbidex — _renderPokeGrid itère générations × ids, alors
+   qu'ici on itère espèces × formes, sur une poignée d'ids.
+   Les filtres de rareté, de capture et la recherche restent actifs : les espèces
+   listées n'ont ni la même rareté ni le même nombre de formes, et la liste est
+   faite pour grandir. */
+function _renderFormGrid({
+  grid,
+  searchQuery,
+  activeFilter,
+  onProgressBars,
+  onCardClick,
+}) {
+  onProgressBars();
+  grid.innerHTML = '';
+  grid.classList.toggle('reveal-sprites', activeFilter === 'uncaptured');
+
+  let displayedCount = 0;
+
+  for (const species of getFormdexSpecies()) {
+    const tier        = POKEMON_TIERS[species.id];
+    const speciesName = state.names[species.id] || `#${species.id}`;
+
+    const section = document.createElement('section');
+    section.className = 'generation-section';
+    section.innerHTML = `
+      <div class="generation-title">
+        <div class="generation-title-main"><span>${escapeHtml(speciesName)}</span></div>
+      </div>
+      <div class="generation-grid"></div>
+    `;
+    const genGrid = section.querySelector('.generation-grid');
+
+    for (const form of species.forms) {
+      const formCaptures = getFormCaptures(state.captures, species.id, form.slug);
+      const captured = formCaptures.length > 0;
+      const hasShiny = formCaptures.some(c => c.is_shiny);
+      const date     = formCaptures[0]?.captured_at;
+
+      if (activeFilter === 'captured' && !captured) continue;
+      if (activeFilter === 'uncaptured' && captured) continue;
+      if (activeFilter === 'shiny' && !hasShiny) continue;
+      if (TIER_FILTER_KEYS.includes(activeFilter) && tier !== activeFilter) continue;
+      // « morphéo » comme « blizzard » doivent tomber sur la bonne carte
+      const searchTarget = `${speciesName} ${form.nom}`.toLowerCase();
+      if (searchQuery && !searchTarget.includes(searchQuery) && !String(species.id).includes(searchQuery)) continue;
+
+      const label = getFormShortLabel(form, speciesName);
+
+      const card = document.createElement('div');
+      card.className = `poke-card r-${tier}${captured ? ' captured' : ''}${hasShiny ? ' shiny-card' : ''}`;
+      card.dataset.id = species.id;
+      card.dataset.form = form.slug;
+
+      card.innerHTML = `
+        <div class="poke-sprite-wrap">
+          <img class="poke-sprite" src="${getFormSpriteUrl(form, hasShiny)}" alt="${escapeHtml(form.nom)}" loading="lazy">
+        </div>
+        <div class="poke-number">#${String(species.id).padStart(3, '0')}</div>
+        <div class="poke-name">${captured ? escapeHtml(label) : '???'}</div>
+        ${captured ? `<div class="poke-date">${formatDate(date)}</div>` : ''}
+      `;
+
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-label', `Carte ${captured ? form.nom : 'forme inconnue'} ${TIER_LABELS[tier]}`);
+      card.addEventListener('click', () => onCardClick(species.id, form.slug, formCaptures));
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onCardClick(species.id, form.slug, formCaptures);
+        }
+      });
+
+      genGrid.appendChild(card);
+      displayedCount++;
+    }
+
+    if (genGrid.children.length) grid.appendChild(section);
+  }
+
+  if (displayedCount === 0) {
+    grid.innerHTML = '<div class="grid-empty-state">Aucune forme trouvée</div>';
+  }
+}
+
 function getMegaEvolution(pokemonId) {
   const mega = MEGA_EVOLUTIONS[pokemonId] || null;
   if (!mega) return null;
@@ -1086,15 +1299,23 @@ async function getMegaSpriteUrl(pokemonId, megaForm = null, isShiny = false) {
   }
 }
 
-/* Accorde l'UI au mode courant, et fait retomber en « normal » un mode Zarbidex
-   que le dresseur affiché n'a pas le droit de voir — cas d'un deep-link
-   `#mode=unown` ou d'un retour sur le Pokédex d'un autre dresseur sans Zarbi. */
+/* Accorde l'UI au mode courant, et fait retomber en « normal » un mode que le
+   dresseur affiché n'a pas le droit de voir — cas d'un deep-link `#mode=unown`
+   ou d'un retour sur le Pokédex d'un autre dresseur sans Zarbi ni Morphéo.
+   Le repli doit rester ici, en tête de renderGrid() : c'est le seul point de
+   passage commun au clic sur l'onglet, au deep-link et au changement de dresseur. */
 function syncPokedexMode() {
   const unownBtn = document.getElementById('pokédex-toggle-unown');
   const showUnown = hasAnyUnown(state.captures);
 
   if (unownBtn) unownBtn.style.display = showUnown ? '' : 'none';
   if (!showUnown && state.pokédexMode === 'unown') state.pokédexMode = 'normal';
+
+  const formBtn = document.getElementById('pokédex-toggle-form');
+  const showForm = hasAnyFormSpecies(state.captures);
+
+  if (formBtn) formBtn.style.display = showForm ? '' : 'none';
+  if (!showForm && state.pokédexMode === 'form') state.pokédexMode = 'normal';
 
   document.querySelectorAll('.pokedex-view-toggle .toggle-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.toggle === state.pokédexMode);
@@ -1104,9 +1325,13 @@ function syncPokedexMode() {
      des réponses vides à offrir, et le détail par génération répéterait à
      l'identique le compteur global. Les deux disparaissent dans ce mode. */
   const isUnown = state.pokédexMode === 'unown';
+  const isForm  = state.pokédexMode === 'form';
 
+  /* Le Formdex se découpe par espèce, pas par génération : filtrer par Gen n'y
+     trierait qu'une poignée de sections déjà toutes visibles. Le reste des
+     filtres, lui, reste utile — les espèces n'ont pas la même rareté. */
   const genFilters = document.querySelector('#view-pokedex .generation-filters');
-  if (genFilters) genFilters.style.display = isUnown ? 'none' : '';
+  if (genFilters) genFilters.style.display = (isUnown || isForm) ? 'none' : '';
 
   const detailsToggle = document.getElementById('progress-toggle');
   const detailsPanel  = document.getElementById('generation-progress-panel');
@@ -1141,6 +1366,17 @@ function renderGrid() {
       getCapturesForForm: (slug) => getUnownCapturesForForm(state.captures, slug),
       onProgressBars: renderProgressBars,
       onCardClick: (slug, formCaptures) => openUnownModal(slug, formCaptures),
+    });
+    return;
+  }
+
+  if (state.pokédexMode === 'form') {
+    _renderFormGrid({
+      grid: document.getElementById('pokedex-grid'),
+      searchQuery: state.searchQuery,
+      activeFilter: state.activeFilter,
+      onProgressBars: renderProgressBars,
+      onCardClick: (id, slug, formCaptures) => openFormModal(id, slug, formCaptures),
     });
     return;
   }
@@ -1258,6 +1494,55 @@ function openUnownModal(slug, formCaptures = []) {
 
   document.getElementById('modal-name').textContent   = captured ? `${baseName} ${form.label}` : '???';
   document.getElementById('modal-number').textContent = `#${String(UNOWN_ID).padStart(3, '0')}`;
+
+  const badges = document.getElementById('modal-badges');
+  badges.innerHTML = '';
+
+  const tb = document.createElement('span');
+  tb.className   = `modal-badge modal-badge-${tier}`;
+  tb.textContent = `${TIER_STARS[tier]} ${TIER_LABELS[tier]}`;
+  badges.appendChild(tb);
+
+  if (hasShiny) {
+    const sb = document.createElement('span');
+    sb.className = 'modal-badge modal-badge-shiny';
+    sb.innerHTML = '✨ Shiny';
+    badges.appendChild(sb);
+  }
+
+  const info = document.getElementById('modal-info');
+  info.innerHTML = captured
+    ? formCaptures
+        .map(c => `<div class="poke-date" style="margin-top:6px">${c.is_shiny ? '✨ ' : ''}Capturé le ${formatDate(c.captured_at)}</div>`)
+        .join('')
+    : '<div class="modal-not-captured">Pas encore capturé</div>';
+
+  const overlay = document.getElementById('modal-overlay');
+  _modalLastFocus = document.activeElement;
+  overlay.classList.add('open');
+  document.getElementById('modal-close').focus();
+  trapFocus(overlay);
+}
+
+/* Modale d'une forme alternative. Même DOM qu'openModal, sans les branches méga :
+   le sprite vient de l'artId de la variante, pas de l'official-artwork de l'espèce.
+   Le nom complet (« Morphéo Blizzard ») est affiché ici, la carte n'ayant gardé
+   que le suffixe. */
+function openFormModal(id, slug, formCaptures = []) {
+  const species = getFormdexSpecies().find(s => s.id === id);
+  const form    = species?.forms.find(f => f.slug === slug);
+  if (!form) return;
+
+  const tier     = POKEMON_TIERS[id];
+  const captured = formCaptures.length > 0;
+  const hasShiny = formCaptures.some(c => c.is_shiny);
+
+  const sprite = document.getElementById('modal-sprite');
+  sprite.src       = getFormSpriteUrl(form, hasShiny);
+  sprite.className = `modal-sprite${captured ? '' : ' silhouette'}`;
+
+  document.getElementById('modal-name').textContent   = captured ? form.nom : '???';
+  document.getElementById('modal-number').textContent = `#${String(id).padStart(3, '0')}`;
 
   const badges = document.getElementById('modal-badges');
   badges.innerHTML = '';
@@ -1746,6 +2031,33 @@ function renderRarityPanel(gen) {
   }).join('');
 }
 
+/* Rendu d'un classement de Pokémon, partagé par les panneaux « les plus
+   capturés » et « le plus apparu ». `entries` : [[id, valeur], …] déjà trié.
+   La barre est proportionnelle au n°1 de la liste, pas à un maximum absolu :
+   c'est ce qui rend l'écart lisible quel que soit l'ordre de grandeur. */
+function renderTopPokemonRows(entries, emptyLabel = 'Aucune donnée') {
+  if (!entries.length) return `<div class="stats-empty">${escapeHtml(emptyLabel)}</div>`;
+
+  const maxCount = entries[0][1] || 1;
+
+  return entries.map(([id, count], i) => {
+    const name   = state.names[id] || `#${id}`;
+    const tier   = POKEMON_TIERS[id];
+    const barPct = Math.round((count / maxCount) * 100);
+    return `
+      <div class="sdash-top-row">
+        <span class="sdash-top-rank">#${i + 1}</span>
+        <img class="sdash-top-sprite" src="${SPRITE_BASE}${id}.png" alt="${escapeHtml(name)}" loading="lazy">
+        <span class="sdash-top-name tier-${tier}">${escapeHtml(name)}</span>
+        <div class="sdash-bar-track sdash-bar-inline">
+          <div class="sdash-bar-fill tier-bg-${tier}" style="width:${barPct}%;opacity:.27"></div>
+        </div>
+        <span class="sdash-top-val">${count}</span>
+      </div>
+    `;
+  }).join('');
+}
+
 function renderTopPokemonPanel(gen) {
   const topEl = document.getElementById('sdash-top-pokemon');
   if (!topEl || !state.dashAllRows) return;
@@ -1767,25 +2079,92 @@ function renderTopPokemonPanel(gen) {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8);
 
-  const maxCount = topPokemon[0]?.[1] || 1;
+  topEl.innerHTML = renderTopPokemonRows(topPokemon);
+}
 
-  topEl.innerHTML = topPokemon.length ? topPokemon.map(([id, count], i) => {
-    const name = state.names[id] || `#${id}`;
-    const tier = POKEMON_TIERS[id];
-    const color = TIER_COLORS[tier] || '#fff';
-    const barPct = Math.round((count / maxCount) * 100);
-    return `
-      <div class="sdash-top-row">
-        <span class="sdash-top-rank">#${i + 1}</span>
-        <img class="sdash-top-sprite" src="${SPRITE_BASE}${id}.png" alt="${escapeHtml(name)}" loading="lazy">
-        <span class="sdash-top-name tier-${tier}">${escapeHtml(name)}</span>
-        <div class="sdash-bar-track sdash-bar-inline">
-          <div class="sdash-bar-fill tier-bg-${tier}" style="width:${barPct}%;opacity:.27"></div>
-        </div>
-        <span class="sdash-top-val">${count}</span>
-      </div>
-    `;
-  }).join('') : '<div class="stats-empty">Aucune donnée</div>';
+/* ─── Apparitions ──────────────────────────────── */
+/* Les deux panneaux d'apparitions. `field` vaut 'total' ou 'month', tels que la
+   vue `pokemon_spawn_counts` les renvoie.
+   Les lignes à 0 sont écartées : en mode 'month', ce sont les compteurs périmés
+   que la vue neutralise (une espèce apparue le mois dernier et pas celui-ci),
+   pas des apparitions. Les afficher remplirait le panneau de zéros. */
+/* Génération et rareté sont deux filtres indépendants, appliqués ensemble :
+   Gen 2 + Épique ne garde que les épiques de Gen 2. Les bornes viennent de
+   GENERATIONS plutôt que d'être réécrites à la main. */
+function matchesSpawnFilters(id) {
+  if (state.spawnTier !== 'all' && POKEMON_TIERS[id] !== state.spawnTier) return false;
+  if (state.spawnGen === 'all') return true;
+
+  const gen = GENERATIONS.find(g => String(g.id) === state.spawnGen);
+  return !!gen && id >= gen.start && id <= gen.end;
+}
+
+function hasActiveSpawnFilters() {
+  return state.spawnGen !== 'all' || state.spawnTier !== 'all';
+}
+
+function renderTopSpawnsPanel(containerId, field, emptyLabel) {
+  const el = document.getElementById(containerId);
+  if (!el || !state.spawnStatsCache) return;
+
+  const entries = state.spawnStatsCache
+    // La table accepte 1..1025, la grille s'arrête à POKEDEX_TOTAL : sans ce
+    // filtre un spawn de test hors dex s'afficherait sans nom ni sprite.
+    .filter(r => isInPokedex(r.pokemon_id) && Number(r[field]) > 0)
+    .map(r => [Number(r.pokemon_id), Number(r[field])])
+    .filter(([id]) => matchesSpawnFilters(id))
+    /* Pas de `slice` : le classement est complet et se parcourt au défilement
+       (`.sdash-top-list-scroll`). Tronquer à 5 masquerait tout le bas du
+       classement, or c'est justement ce qu'un filtre de rareté sert à explorer. */
+    .sort((a, b) => b[1] - a[1]);
+
+  /* Un panneau vide à cause des filtres et un panneau vide faute de données
+     n'appellent pas la même réaction du lecteur. */
+  const empty = hasActiveSpawnFilters() ? 'Aucune apparition pour ces filtres' : emptyLabel;
+
+  el.innerHTML = renderTopPokemonRows(entries, empty);
+}
+
+function renderSpawnPanels() {
+  document.querySelectorAll('[data-spawn-gen]').forEach(b =>
+    b.classList.toggle('active', b.dataset.spawnGen === state.spawnGen)
+  );
+  document.querySelectorAll('[data-spawn-tier]').forEach(b =>
+    b.classList.toggle('active', b.dataset.spawnTier === state.spawnTier)
+  );
+
+  renderTopSpawnsPanel('sdash-top-spawns', 'total', 'Aucune apparition enregistrée');
+  renderTopSpawnsPanel('sdash-top-spawns-month', 'month', 'Aucune apparition ce mois');
+}
+
+/* Compteurs d'apparitions. Lecture par la vue `pokemon_spawn_counts` : la table
+   `pokemon_spawns` et son RPC `list_pokemon_spawns()` exigent `x-secret`, que ce
+   site public ne peut pas porter — il donnerait l'écriture à tout visiteur.
+
+   Chargement à part, et surtout try/catch à part : une vue absente (migration
+   pas passée, cache de schéma PostgREST pas rechargé) ne doit pas emporter les
+   panneaux rareté, top-captures et progression avec elle. */
+async function loadSpawnStats(forceRefresh = false) {
+  try {
+    if (!state.spawnStatsCache || forceRefresh) {
+      state.spawnStatsCache = await fetchAllSupabaseRows(
+        // `order=` explicite : sans lui fetchAllSupabaseRows ajoute son
+        // STABLE_ROW_ORDER `id.asc`, or la vue n'a pas de colonne `id` → 400.
+        `${CONFIG.supabase.url}/rest/v1/pokemon_spawn_counts?select=pokemon_id,month,total&order=pokemon_id.asc`,
+        {
+          'apikey': CONFIG.supabase.key,
+          'Authorization': `Bearer ${CONFIG.supabase.key}`,
+        }
+      );
+    }
+  } catch (e) {
+    console.error(e);
+    showLoadError(document.getElementById('sdash-top-spawns'), 'Apparitions indisponibles.');
+    showLoadError(document.getElementById('sdash-top-spawns-month'), 'Apparitions indisponibles.');
+    return;
+  }
+
+  renderSpawnPanels();
 }
 
 /* ════════════════════════════════════════════════
@@ -1862,6 +2241,10 @@ async function loadStatsDashboard(forceRefresh = false) {
       </div>
     `;
   }).join('');
+
+  /* En dernier, et sur son propre fetch : les panneaux ci-dessus sont déjà à
+     l'écran quand la vue des apparitions répond. */
+  await loadSpawnStats(forceRefresh);
 }
 
 /* ════════════════════════════════════════════════
@@ -2252,6 +2635,23 @@ document.querySelectorAll('[data-top-gen]').forEach(btn => {
   });
 });
 
+/* Filtres de la ligne « apparitions ». Les deux groupes sont indépendants : un
+   clic sur une génération ne touche pas la rareté, et renderSpawnPanels()
+   raccorde les classes `active` à l'état — pas besoin de les gérer ici. */
+document.querySelectorAll('[data-spawn-gen]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.spawnGen = btn.dataset.spawnGen;
+    renderSpawnPanels();
+  });
+});
+
+document.querySelectorAll('[data-spawn-tier]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.spawnTier = btn.dataset.spawnTier;
+    renderSpawnPanels();
+  });
+});
+
 // ─── Toggle Pokédex Normal / Mega ─────────────
 function resetPokedexFilters() {
   state.activeFilter = 'all';
@@ -2297,6 +2697,15 @@ document.getElementById('pokédex-toggle-mega')?.addEventListener('click', () =>
   document.querySelectorAll('.pokedex-view-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('pokédex-toggle-mega').classList.add('active');
   state.pokédexMode = 'mega';
+  resetPokedexFilters();
+  updateUrlState();
+  renderGrid();
+});
+
+document.getElementById('pokédex-toggle-form')?.addEventListener('click', () => {
+  document.querySelectorAll('.pokedex-view-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('pokédex-toggle-form').classList.add('active');
+  state.pokédexMode = 'form';
   resetPokedexFilters();
   updateUrlState();
   renderGrid();
