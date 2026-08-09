@@ -70,6 +70,10 @@
       <div class="pokedex-view-toggle">
         <button class="toggle-btn active" id="pokédex-toggle-normal" data-toggle="normal">Pokédex</button>
         <button class="toggle-btn" id="pokédex-toggle-mega" data-toggle="mega">Megadex <img src="https://archives.bulbagarden.net/media/upload/c/cd/Mega_Evolution_key_stone_icon.png" alt="Keystone" class="keystone-icon" style="display:inline-block; width:16px; height:16px; margin-left:4px; vertical-align:middle;"></button>
+        <!-- Formes alternatives hors méga, une section par espèce. Zarbi en est exclu,
+             il a son Zarbidex. Révélé par syncPokedexMode() uniquement si le dresseur
+             possède au moins une espèce à formes, forme identifiée ou non. -->
+        <button class="toggle-btn" id="pokédex-toggle-form" data-toggle="form" style="display:none">Formdex</button>
         <!-- Révélé par syncPokedexMode() uniquement si le dresseur possède au moins un Zarbi.
              Le libellé est écrit en alphabet Zarbi, monté par renderUnownWords() ;
              aria-label porte le texte lisible pour les lecteurs d'écran. -->
@@ -207,7 +211,56 @@
             <div class="sdash-top-list" id="sdash-top-pokemon"></div>
           </div>
         </div>
-        <!-- Ligne 3 : progression par génération -->
+
+        <!-- Ligne 3 : apparitions (table `pokemon_spawns`, alimentée par l'overlay
+             à chaque spawn — attrapé ou non, contrairement aux panneaux ci-dessus
+             qui ne parlent que de captures). Lecture par la vue publique
+             `pokemon_spawn_counts`, le site n'ayant pas le secret. -->
+        <!-- Filtres partagés par les deux panneaux : ils montrent le même jeu de
+             données sous deux angles, des filtres divergents entre eux se
+             compareraient mal. Génération et rareté sont indépendants et se
+             combinent (Gen 2 + Épique = les épiques de Gen 2). -->
+        <div class="sdash-filter-bar">
+          <div class="sdash-filter-group">
+            <span class="sdash-filter-label">Génération</span>
+            <div class="sdash-gen-tabs">
+              <button class="sdash-gen-tab active" data-spawn-gen="all">Toutes</button>
+              <button class="sdash-gen-tab" data-spawn-gen="1">Gen 1</button>
+              <button class="sdash-gen-tab" data-spawn-gen="2">Gen 2</button>
+              <button class="sdash-gen-tab" data-spawn-gen="3">Gen 3</button>
+            </div>
+          </div>
+          <div class="sdash-filter-group">
+            <span class="sdash-filter-label">Rareté</span>
+            <div class="sdash-gen-tabs">
+              <button class="sdash-gen-tab active" data-spawn-tier="all">Toutes</button>
+              <button class="sdash-gen-tab t-commun" data-spawn-tier="commun">Commun</button>
+              <button class="sdash-gen-tab t-peuCommun" data-spawn-tier="peuCommun">Peu commun</button>
+              <button class="sdash-gen-tab t-rare" data-spawn-tier="rare">Rare</button>
+              <button class="sdash-gen-tab t-epique" data-spawn-tier="epique">Épique</button>
+              <button class="sdash-gen-tab t-fabuleux" data-spawn-tier="fabuleux">Fabuleux</button>
+              <button class="sdash-gen-tab t-legendaire" data-spawn-tier="legendaire">Légendaire</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sdash-row-2">
+          <div class="sdash-panel">
+            <div class="sdash-panel-header">
+              <div class="sdash-panel-title">Pokémon le plus apparu</div>
+            </div>
+            <div class="sdash-top-list sdash-top-list-scroll" id="sdash-top-spawns"></div>
+          </div>
+
+          <div class="sdash-panel">
+            <div class="sdash-panel-header">
+              <div class="sdash-panel-title">Pokémon le plus apparu ce mois</div>
+            </div>
+            <div class="sdash-top-list sdash-top-list-scroll" id="sdash-top-spawns-month"></div>
+          </div>
+        </div>
+
+        <!-- Ligne 4 : progression par génération -->
         <div class="sdash-panel sdash-panel-full">
           <div class="sdash-panel-title">Progression de la communauté</div>
           <div class="sdash-gen-bars" id="sdash-gen-bars"></div>
