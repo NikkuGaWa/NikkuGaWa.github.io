@@ -341,6 +341,7 @@ body::before {
 /* ─── Pokédex Toggle ──────────────────────────── */
 .pokedex-view-toggle {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 16px 24px 0;
   justify-content: center;
@@ -1443,6 +1444,44 @@ hyphens: auto;
 .sdash-gen-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
 .sdash-gen-tab.active { color: var(--gold); background: rgba(240,208,80,0.1); }
 
+/* ── Barre de filtres partagée (ligne apparitions) ── */
+/* Deux groupes indépendants et combinables, au-dessus des deux panneaux plutôt
+   que dans leur en-tête : ils pilotent les deux à la fois. */
+.sdash-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 22px;
+  margin-bottom: -4px;
+}
+
+.sdash-filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sdash-filter-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+}
+
+/* Le groupe rareté compte sept pastilles : il doit pouvoir passer à la ligne
+   dans son propre conteneur plutôt que déborder. */
+.sdash-filter-group .sdash-gen-tabs { flex-wrap: wrap; }
+
+/* Chaque rareté s'allume à sa propre couleur, comme les filtres du Pokédex.
+   Nécessaire pour battre `.sdash-gen-tab.active`, qui met du doré à tout le monde. */
+.sdash-gen-tab.t-commun.active     { color: var(--commun);     background: rgba(255,255,255,0.10); }
+.sdash-gen-tab.t-peuCommun.active  { color: var(--peucommun);  background: rgba(76,175,80,0.12); }
+.sdash-gen-tab.t-rare.active       { color: var(--rare);       background: rgba(33,150,243,0.12); }
+.sdash-gen-tab.t-epique.active     { color: var(--epique);     background: rgba(224,64,251,0.12); }
+.sdash-gen-tab.t-fabuleux.active   { color: var(--fabuleux);   background: rgba(250,115,255,0.12); }
+.sdash-gen-tab.t-legendaire.active { color: var(--legendaire); background: rgba(240,208,80,0.12); }
+
 .sdash-rarity-list {
   display: flex;
   flex-direction: column;
@@ -1467,6 +1506,19 @@ hyphens: auto;
   flex-direction: column;
   gap: 8px;
 }
+
+/* Classement complet, parcouru au défilement. La hauteur coupe volontairement
+   la 6ᵉ ligne en deux : une ligne tronquée annonce la suite, là où une coupe
+   nette laisserait croire que le classement s'arrête là.
+   Sous ce seuil le conteneur se réduit tout seul — quatre espèces enregistrées
+   ne déclenchent ni scrollbar ni vide en bas de panneau. */
+.sdash-top-list-scroll {
+  max-height: 260px;
+  overflow-y: auto;
+  /* Les lignes gardent leur alignement malgré la gouttière de la scrollbar */
+  padding-right: 6px;
+  margin-right: -6px;
+}
 .sdash-top-row {
   display: flex;
   align-items: center;
@@ -1483,7 +1535,11 @@ hyphens: auto;
   font-family: 'Press Start 2P', monospace;
   font-size: 7px;
   color: var(--muted);
-  width: 22px;
+  /* `min-width` et non `width` : le classement complet descend jusqu'à #386,
+     qui déborderait d'une largeur fixe. Les rangs à un chiffre gardent
+     l'alignement des panneaux existants. */
+  min-width: 22px;
+  white-space: nowrap;
   flex-shrink: 0;
   text-align: right;
 }
