@@ -29,6 +29,20 @@
   --glow-epique:    0 0 18px rgba(224,64,251,0.35);
   --glow-fabuleux:  0 0 22px rgba(250,115,255,0.4);
   --glow-legendaire:0 0 26px rgba(240,208,80,0.5);
+  /* ── Palier Arceus ──
+     Le seul palier sans couleur : c'est le spectre entier qui le désigne. Deux
+     calques, tous deux animés par le même `background-position` — le dégradé qui
+     défile, et un reflet blanc oblique qui le traverse plus vite. C'est ce
+     décalage entre les deux vitesses qui donne l'irisation plutôt qu'un simple
+     arc-en-ciel qui glisse.
+     Déclarés en variables parce que quatre « plaques » les réutilisent : badge
+     de la modale, bouton de filtre, pastille des stats, texte et barre. */
+  --arceus-spectrum: linear-gradient(100deg,
+    #ff5f6d 0%, #ffa751 14%, #f9f871 28%, #6dffb0 42%,
+    #4facfe 56%, #a06bff 70%, #ff6ec4 86%, #ff5f6d 100%);
+  --arceus-sheen: linear-gradient(115deg,
+    transparent 38%, rgba(255,255,255,0.65) 50%, transparent 62%);
+  --glow-arceus: 0 0 26px rgba(200,140,255,0.45);
   --glow-shiny:     0 0 16px rgba(0,229,255,0.35);
 
   --header-height:  64px;
@@ -625,6 +639,137 @@ body::before {
   padding: 0 4px;
 }
 .poke-card:not(.captured) .poke-name { color: var(--muted); font-style: italic; }
+
+/* ── Ball de capture ─────────────────────────── */
+/* Sur la carte, l'emoji seul : la ligne de date est étroite et le nom complet
+   vit dans le title. Dans la modale, il est suivi du libellé. */
+.poke-ball-tag {
+  white-space: nowrap;
+  font-size: 0.95em;
+  line-height: 1;
+}
+
+/* ── Détail d'une capture (modale) ───────────── */
+.poke-detail-row {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.poke-detail-row:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+
+/* Ce qui distingue la variante — méga, forme, shiny — au-dessus de sa ligne de
+   date. Absent pour une capture ordinaire : le nom de l'espèce le dit déjà. */
+.poke-detail-variant {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: var(--gold);
+  margin-bottom: 5px;
+  line-height: 1.6;
+}
+
+/* ── Bouton « Détails » de la fiche ──────────── */
+/* Replie le détail par variante. Calqué sur `.progress-toggle`, l'autre
+   « Détails » du site, pour que les deux se reconnaissent. */
+.modal-details-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  padding: 6px 13px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.modal-details-toggle:hover { color: var(--gold); border-color: var(--gold-dim); background: rgba(240,208,80,0.08); }
+.modal-details-toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* Chevron : seul indice du sens du clic sur un bouton qui ne change pas de mot. */
+.modal-details-toggle i {
+  width: 0; height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  transition: transform .18s var(--ease-out);
+}
+.modal-details-toggle[aria-expanded="true"] i { transform: rotate(180deg); }
+
+/* ── Cartes de variante (vue « Détails ») ────── */
+/* Une carte par forme, méga ou shiny possédée, à la TAILLE EXACTE de la fiche
+   qu'on obtient en cliquant un Pokémon : elles reprennent .modal-sprite,
+   .modal-name et .modal-number, rien n'est redéfini.
+
+   En vue détail, la fiche perd son cadre — fond, bordure, ombre, largeur fixe —
+   et les cartes se posent directement sur le fond assombri, réparties sur la
+   largeur de l'écran. C'est ce qui évite l'effet « tableau dans une fenêtre ».
+   `flex-wrap` + `justify-content: center` : autant de rangées que nécessaire,
+   toujours centrées, sans nombre de colonnes à décider. */
+.modal.details-open {
+  width: min(1500px, 96vw);
+  max-height: 92vh;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  /* De quoi loger la croix de fermeture et le bouton « Retour ». */
+  padding: 56px 4px 24px;
+}
+
+/* Le résumé n'a plus lieu d'être : sa date et sa ball figurent sur la carte
+   correspondante, juste en dessous. Seul « Retour » reste. */
+.modal.details-open #modal-info .poke-date { display: none; }
+
+.modal-variants {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: 18px;
+}
+/* `[hidden]` seul ne suffit pas : la règle de classe pose un `display: flex`
+   qui l'emporterait sur celle du navigateur. */
+.modal-variants[hidden] { display: none; }
+
+/* Chaque carte porte le cadre que la fiche vient de perdre. Largeur calée sur
+   le sprite (160 px) plus la marge intérieure. */
+.variant-card {
+  width: 218px;
+  flex: 0 0 auto;
+  background: linear-gradient(180deg, var(--bg2), var(--bg3));
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px 16px 18px;
+  text-align: center;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+  transition: border-color .2s, box-shadow .2s;
+}
+.variant-card:hover { border-color: rgba(240,208,80,0.28); }
+.variant-card.shiny-card {
+  border-color: rgba(0,229,255,0.4);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.45), var(--glow-shiny);
+}
+
+/* Halo clair en plus de l'ombre : certains artworks sont presque noirs
+   (Méga-Dracaufeu X, Méga-Ténéfix) et disparaissent sur le fond sombre. */
+.variant-card .modal-sprite {
+  margin-bottom: 12px;
+  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6)) drop-shadow(0 0 6px rgba(255,255,255,0.16));
+}
+.variant-card .modal-number { margin-bottom: 10px; }
+
+/* Une donnée absente ne doit pas se lire comme un zéro : la table des lancers
+   ne remonte pas avant son déploiement, la plupart des captures n'y sont pas. */
+.modal-variant-unknown { color: var(--muted); opacity: .6; font-style: italic; }
+
+/* Sous 520 px, deux cartes ne tiennent plus côte à côte : elles s'affinent
+   plutôt que de déborder. */
+@media (max-width: 520px) {
+  .variant-card { width: 100%; max-width: 260px; }
+}
 
 .poke-date {
   font-size: 9px;
@@ -1357,6 +1502,65 @@ hyphens: auto;
 
 .shiny-color { color: var(--shiny) !important; }
 
+/* ── Interrupteur des filtres, un par panneau ── */
+/* Volontairement muet : un écrou à peine plus haut que le titre, posé au bout de
+   sa ligne. Un libellé « Filtres » y pèserait autant que le titre lui-même, dans
+   un en-tête qui doit d'abord annoncer une donnée. Le texte lisible reste dans
+   l'aria-label et le title. */
+.sdash-filter-cog {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px; height: 26px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color .15s, background .15s, border-color .15s, transform .25s var(--ease-out);
+}
+.sdash-filter-cog:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.sdash-filter-cog:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* L'écrou tourne d'un quart de tour quand ses filtres sont dépliés : la seule
+   confirmation possible sur un bouton sans texte. */
+.sdash-filter-cog[aria-expanded="true"] {
+  color: var(--gold);
+  background: rgba(240,208,80,0.1);
+  border-color: rgba(240,208,80,0.3);
+  transform: rotate(90deg);
+}
+
+/* Titre et écrou sur la même ligne ; les filtres se déplient dessous, dans le
+   flux en colonne de .sdash-panel-header. */
+.sdash-panel-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Sous-titre des panneaux de difficulté : « 7,3 » ne dit pas de quoi il est la
+   moyenne, et le titre seul ne peut pas le porter sans devenir une phrase. */
+.sdash-panel-note {
+  margin-top: 7px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* `[hidden]` seul ne suffit pas : les blocs de filtres portent un `display:flex`
+   de classe, qui l'emporterait sur la règle par défaut du navigateur. */
+[data-stats-filters][hidden] { display: none; }
+
+/* Même précaution pour les boutons « Gen 4 », semés dans huit groupes de filtres
+   aux classes toutes différentes : une seule règle plutôt qu'un audit du
+   `display` de chacune. */
+[data-gen4][hidden] { display: none !important; }
+
 /* ── Two-column row ──────────────────────────── */
 .sdash-row-2 {
   display: grid;
@@ -1473,6 +1677,18 @@ hyphens: auto;
    dans son propre conteneur plutôt que déborder. */
 .sdash-filter-group .sdash-gen-tabs { flex-wrap: wrap; }
 
+/* Variante logée DANS un panneau (« mes lancers ») : trois groupes au lieu de
+   deux, dans une colonne deux fois plus étroite que la barre pleine largeur des
+   apparitions. Ils s'empilent plutôt que de se disputer la ligne, et le libellé
+   prend une largeur commune pour que les trois rangées s'alignent. */
+.sdash-filter-bar-panel {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.sdash-filter-bar-panel .sdash-filter-label { min-width: 62px; }
+
 /* Chaque rareté s'allume à sa propre couleur, comme les filtres du Pokédex.
    Nécessaire pour battre `.sdash-gen-tab.active`, qui met du doré à tout le monde. */
 .sdash-gen-tab.t-commun.active     { color: var(--commun);     background: rgba(255,255,255,0.10); }
@@ -1481,6 +1697,12 @@ hyphens: auto;
 .sdash-gen-tab.t-epique.active     { color: var(--epique);     background: rgba(224,64,251,0.12); }
 .sdash-gen-tab.t-fabuleux.active   { color: var(--fabuleux);   background: rgba(250,115,255,0.12); }
 .sdash-gen-tab.t-legendaire.active { color: var(--legendaire); background: rgba(240,208,80,0.12); }
+
+/* Même principe pour les trois balls du panneau « mes lancers » : chacune à sa
+   couleur, sinon les trois boutons actifs seraient dorés et indistincts. */
+.sdash-gen-tab.b-pokeball.active  { color: #ff5350; background: rgba(255,83,80,0.12); }
+.sdash-gen-tab.b-superball.active { color: #4aa3ff; background: rgba(74,163,255,0.12); }
+.sdash-gen-tab.b-hyperball.active { color: #f0c419; background: rgba(240,196,25,0.12); }
 
 .sdash-rarity-list {
   display: flex;
@@ -1549,6 +1771,11 @@ hyphens: auto;
   flex-shrink: 0;
   filter: drop-shadow(0 1px 4px rgba(0,0,0,0.5));
 }
+/* Le ✨ du libellé dit déjà « shiny » ; le halo le fait voir à la vitesse du
+   défilement, sans occuper de colonne. */
+.sdash-top-sprite.is-shiny {
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,0.5)) drop-shadow(0 0 5px rgba(255,215,0,0.55));
+}
 .sdash-top-name {
   font-size: 12px;
   font-weight: 600;
@@ -1572,6 +1799,24 @@ hyphens: auto;
   font-size: 8px;
   color: var(--gold);
   flex-shrink: 0;
+}
+
+/* Un pseudo de dresseur est plus long qu'un nom de Pokémon, et la colonne de
+   l'échantillon a mangé de la place : sans ce plancher plus haut, le nom tombe à
+   60px et s'abrège en « BobLeDr… » alors qu'il est le sujet du panneau. La barre
+   (flex: 1) rend le reste. */
+#sdash-top-throwers .sdash-top-name { min-width: 92px; }
+
+/* Taille de l'échantillon, sur les panneaux de moyenne. Une moyenne calculée sur
+   une seule capture arrive en tête du classement sans rien prouver : ce nombre
+   est ce qui permet au lecteur de faire la part des choses. Discret — il
+   qualifie la valeur, il n'est pas la valeur. */
+.sdash-top-n {
+  font-size: 10px;
+  color: var(--muted);
+  flex-shrink: 0;
+  min-width: 24px;
+  text-align: right;
 }
 
 /* ── Gen bars ────────────────────────────────── */
@@ -1755,6 +2000,87 @@ hyphens: auto;
 }
 
 /* Couleurs de tier remplaçant les styles inline */
+/* ════════════════════════════════════════════════
+   PALIER ARCEUS — plaque iridescente
+   ────────────────────────────────────────────────
+   Les deux calques vivent dans `background-image` plutôt que dans un
+   pseudo-élément : un ::after couvrirait le texte de la plaque, alors qu'un
+   fond reste toujours sous lui. Une seule animation suffit, elle déplace les
+   deux calques dans des sens opposés et à des vitesses différentes.
+
+   ── POURQUOI DES TUILES EN PIXELS, RÉPÉTÉES ──
+   Une `background-position` en pourcentage n'est pas une translation : elle
+   aligne l'image sur le cadre, et au-delà de 100% elle la pousse ENTIÈREMENT
+   hors de l'élément. Avec `no-repeat`, la plaque se retrouvait alors nue — le
+   fond sombre réapparaissait, elle s'éteignait puis se rallumait d'un coup au
+   bouclage.
+   Ici chaque motif a une longueur FIXE, se répète, et l'animation le translate
+   d'exactement UNE tuile : l'image de fin est superposable à celle de départ,
+   la boucle est invisible et le défilement continu. Le dégradé commence et
+   finit sur la même couleur (#ff5f6d) pour que le raccord entre deux tuiles ne
+   se voie pas non plus.
+════════════════════════════════════════════════ */
+@keyframes arceus-shift {
+  from { background-position:      0 50%,     0 50%; }
+  to   { background-position: -260px 50%, 420px 50%; }
+}
+
+.modal-badge-arceus {
+  background-image: var(--arceus-sheen), var(--arceus-spectrum);
+  /* Les deux longueurs sont celles translatées par `arceus-shift` — les changer
+     ici sans changer les keyframes rend la boucle visible. */
+  background-size: 260px 100%, 420px 100%;
+  background-repeat: repeat-x, repeat-x;
+  animation: arceus-shift 7s linear infinite;
+  /* Texte sombre : sur un fond aussi saturé, un texte clair devient illisible
+     dès que le jaune passe dessous. */
+  color: #16161f;
+  border-color: transparent;
+  box-shadow: var(--glow-arceus);
+}
+
+/* Texte irisé (nom du palier dans les stats, nom d'espèce dans les classements).
+   Le dégradé est découpé par les glyphes ; `color: transparent` ne sert qu'à
+   laisser voir le fond au travers. */
+.tier-arceus {
+  background-image: var(--arceus-spectrum);
+  background-size: 420px 100%;
+  background-repeat: repeat-x;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: arceus-text-shift 7s linear infinite;
+}
+/* Même translation d'exactement une tuile que `arceus-shift`, pour la même
+   raison : sans elle le dégradé sautait d'un cinquième de tuile au bouclage. */
+@keyframes arceus-text-shift {
+  from { background-position:     0 50%; }
+  to   { background-position: 420px 50%; }
+}
+
+/* Barre de progression : `.tier-bg-*` pose une background-color, sans effet ici
+   puisque le dégradé est une image — d'où la règle dédiée. */
+.tier-bg-arceus {
+  background-color: transparent;
+  background-image: var(--arceus-spectrum);
+  background-size: 420px 100%;
+  background-repeat: repeat-x;
+  animation: arceus-text-shift 7s linear infinite;
+}
+
+.poke-card.r-arceus:hover {
+  box-shadow: 0 12px 32px rgba(0,0,0,0.45), var(--glow-arceus);
+  border-color: rgba(200,140,255,0.5);
+}
+
+/* Une plaque qui scintille en boucle est exactement ce qu'un utilisateur
+   sensible au mouvement demande d'arrêter. Le dégradé reste, il se fige. */
+@media (prefers-reduced-motion: reduce) {
+  .modal-badge-arceus,
+  .tier-arceus,
+  .tier-bg-arceus { animation: none; }
+}
+
 .tier-commun     { color: var(--commun);     }
 .tier-peuCommun  { color: var(--peucommun);  }
 .tier-rare       { color: var(--rare);       }
