@@ -97,6 +97,7 @@
           <button class="gen-filter-btn" data-gen-filter="1">Gen 1</button>
           <button class="gen-filter-btn" data-gen-filter="2">Gen 2</button>
           <button class="gen-filter-btn" data-gen-filter="3">Gen 3</button>
+          <button class="gen-filter-btn" data-gen-filter="4" data-gen4 hidden>Gen 4</button>
         </div>
       </div>
       <div class="filters">
@@ -136,6 +137,7 @@
           <button class="gen-filter-btn" data-community-gen="1">Gen 1</button>
           <button class="gen-filter-btn" data-community-gen="2">Gen 2</button>
           <button class="gen-filter-btn" data-community-gen="3">Gen 3</button>
+          <button class="gen-filter-btn" data-community-gen="4" data-gen4 hidden>Gen 4</button>
         </div>
       </div>
 
@@ -182,33 +184,94 @@
           </div>
         </div>
 
-        <!-- Ligne 2 : répartition par rareté + pokémon les plus capturés -->
+        <!-- Chaque panneau replie ses propres filtres derrière un écrou, muet et de
+             la taille du titre. Repliés au départ : on vient d'abord lire des
+             chiffres, et des rangées de pastilles au-dessus de chaque panneau les
+             noient avant qu'une donnée ait été montrée.
+             Replier remet les filtres DE CE PANNEAU sur « toutes » (cf.
+             syncStatsFilters) — un filtre actif sans contrôle visible pour
+             l'expliquer ferait passer un panneau réduit pour un panneau vide. -->
+
+        <!-- Ligne 2 : répartition par rareté + mes lancers de balls -->
         <div class="sdash-row-2">
 
           <div class="sdash-panel">
             <div class="sdash-panel-header">
-              <div class="sdash-panel-title">Pokémon capturés par la communauté</div>
-              <div class="sdash-gen-tabs">
+              <div class="sdash-panel-head-row">
+                <div class="sdash-panel-title">Pokémon capturés par la communauté</div>
+                <button class="sdash-filter-cog" type="button" data-filter-toggle="rarity"
+                        aria-expanded="false" aria-label="Filtres" title="Filtres">⚙&#xFE0E;</button>
+              </div>
+              <div class="sdash-gen-tabs" data-stats-filters="rarity" hidden>
                 <button class="sdash-gen-tab active" data-rarity-gen="all">Tous</button>
                 <button class="sdash-gen-tab" data-rarity-gen="1">Gen 1</button>
                 <button class="sdash-gen-tab" data-rarity-gen="2">Gen 2</button>
                 <button class="sdash-gen-tab" data-rarity-gen="3">Gen 3</button>
+                <button class="sdash-gen-tab" data-rarity-gen="4" data-gen4 hidden>Gen 4</button>
               </div>
             </div>
             <div class="sdash-rarity-list" id="sdash-rarity-list"></div>
           </div>
 
+          <!-- Panneau PERSONNEL : les balls que le dresseur connecté a lancées sur
+               chaque Pokémon. Lecture par la vue `user_pokemon_throw_counts`
+               (table `user_pokemon_throws` fermée, RPC `record_ball_throw` sous
+               `x-secret` que ce site public ne peut pas porter).
+               Une ligne par variante réellement visée — shiny, méga, forme —
+               comme la clé de `captures` : le sprite affiché est celui de la
+               variante, pas celui de l'espèce.
+               La Master Ball n'a pas de bouton et ne compte nulle part ici : elle
+               capture à coup sûr (un lancer, une capture), et un total « Toutes »
+               supérieur à la somme des trois boutons visibles passerait pour un
+               bug plutôt que pour une information. -->
           <div class="sdash-panel">
             <div class="sdash-panel-header">
-              <div class="sdash-panel-title">Pokémon les plus capturés</div>
-              <div class="sdash-gen-tabs">
-                <button class="sdash-gen-tab active" data-top-gen="all">Tous</button>
-                <button class="sdash-gen-tab" data-top-gen="1">Gen 1</button>
-                <button class="sdash-gen-tab" data-top-gen="2">Gen 2</button>
-                <button class="sdash-gen-tab" data-top-gen="3">Gen 3</button>
+              <div class="sdash-panel-head-row">
+                <div class="sdash-panel-title">Lancers de balls</div>
+                <button class="sdash-filter-cog" type="button" data-filter-toggle="throws"
+                        aria-expanded="false" aria-label="Filtres" title="Filtres">⚙&#xFE0E;</button>
               </div>
             </div>
-            <div class="sdash-top-list" id="sdash-top-pokemon"></div>
+
+            <!-- Trois groupes indépendants et combinables : Gen 2 + Épique +
+                 Hyper Ball ne garde que les épiques de Gen 2 visés à l'Hyper
+                 Ball. Empilés (et non sur une ligne comme la barre partagée des
+                 apparitions) : la colonne fait la moitié de la largeur. -->
+            <div class="sdash-filter-bar sdash-filter-bar-panel" data-stats-filters="throws" hidden>
+              <div class="sdash-filter-group">
+                <span class="sdash-filter-label">Génération</span>
+                <div class="sdash-gen-tabs">
+                  <button class="sdash-gen-tab active" data-throw-gen="all">Toutes</button>
+                  <button class="sdash-gen-tab" data-throw-gen="1">Gen 1</button>
+                  <button class="sdash-gen-tab" data-throw-gen="2">Gen 2</button>
+                  <button class="sdash-gen-tab" data-throw-gen="3">Gen 3</button>
+                  <button class="sdash-gen-tab" data-throw-gen="4" data-gen4 hidden>Gen 4</button>
+                </div>
+              </div>
+              <div class="sdash-filter-group">
+                <span class="sdash-filter-label">Rareté</span>
+                <div class="sdash-gen-tabs">
+                  <button class="sdash-gen-tab active" data-throw-tier="all">Toutes</button>
+                  <button class="sdash-gen-tab t-commun" data-throw-tier="commun">Commun</button>
+                  <button class="sdash-gen-tab t-peuCommun" data-throw-tier="peuCommun">Peu commun</button>
+                  <button class="sdash-gen-tab t-rare" data-throw-tier="rare">Rare</button>
+                  <button class="sdash-gen-tab t-epique" data-throw-tier="epique">Épique</button>
+                  <button class="sdash-gen-tab t-fabuleux" data-throw-tier="fabuleux">Fabuleux</button>
+                  <button class="sdash-gen-tab t-legendaire" data-throw-tier="legendaire">Légendaire</button>
+                </div>
+              </div>
+              <div class="sdash-filter-group">
+                <span class="sdash-filter-label">Ball</span>
+                <div class="sdash-gen-tabs">
+                  <button class="sdash-gen-tab active" data-throw-ball="all">Toutes</button>
+                  <button class="sdash-gen-tab b-pokeball" data-throw-ball="pokeball">Poké Ball</button>
+                  <button class="sdash-gen-tab b-superball" data-throw-ball="superball">Super Ball</button>
+                  <button class="sdash-gen-tab b-hyperball" data-throw-ball="hyperball">Hyper Ball</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="sdash-top-list sdash-top-list-scroll" id="sdash-my-throws"></div>
           </div>
         </div>
 
@@ -219,8 +282,12 @@
         <!-- Filtres partagés par les deux panneaux : ils montrent le même jeu de
              données sous deux angles, des filtres divergents entre eux se
              compareraient mal. Génération et rareté sont indépendants et se
-             combinent (Gen 2 + Épique = les épiques de Gen 2). -->
-        <div class="sdash-filter-bar">
+             combinent (Gen 2 + Épique = les épiques de Gen 2).
+             Une seule barre, donc DEUX écrous qui la commandent — un par panneau,
+             comme partout ailleurs : depuis celui qu'on regarde, le contrôle est
+             sous la main. Ils partagent le groupe « spawn » et restent donc
+             toujours dans le même état. -->
+        <div class="sdash-filter-bar" data-stats-filters="spawn" hidden>
           <div class="sdash-filter-group">
             <span class="sdash-filter-label">Génération</span>
             <div class="sdash-gen-tabs">
@@ -228,6 +295,7 @@
               <button class="sdash-gen-tab" data-spawn-gen="1">Gen 1</button>
               <button class="sdash-gen-tab" data-spawn-gen="2">Gen 2</button>
               <button class="sdash-gen-tab" data-spawn-gen="3">Gen 3</button>
+              <button class="sdash-gen-tab" data-spawn-gen="4" data-gen4 hidden>Gen 4</button>
             </div>
           </div>
           <div class="sdash-filter-group">
@@ -247,20 +315,108 @@
         <div class="sdash-row-2">
           <div class="sdash-panel">
             <div class="sdash-panel-header">
-              <div class="sdash-panel-title">Pokémon le plus apparu</div>
+              <div class="sdash-panel-head-row">
+                <div class="sdash-panel-title">Pokémon le plus apparu</div>
+                <button class="sdash-filter-cog" type="button" data-filter-toggle="spawn"
+                        aria-expanded="false" aria-label="Filtres" title="Filtres">⚙&#xFE0E;</button>
+              </div>
             </div>
             <div class="sdash-top-list sdash-top-list-scroll" id="sdash-top-spawns"></div>
           </div>
 
           <div class="sdash-panel">
             <div class="sdash-panel-header">
-              <div class="sdash-panel-title">Pokémon le plus apparu ce mois</div>
+              <div class="sdash-panel-head-row">
+                <div class="sdash-panel-title">Pokémon le plus apparu ce mois</div>
+                <button class="sdash-filter-cog" type="button" data-filter-toggle="spawn"
+                        aria-expanded="false" aria-label="Filtres" title="Filtres">⚙&#xFE0E;</button>
+              </div>
             </div>
             <div class="sdash-top-list sdash-top-list-scroll" id="sdash-top-spawns-month"></div>
           </div>
         </div>
 
-        <!-- Ligne 4 : progression par génération -->
+        <!-- Ligne 4 : difficulté de capture. Deux lectures du MÊME jeu de lignes
+             (`user_pokemon_throw_counts`, déjà chargé pour « mes lancers ») :
+             par espèce, puis par dresseur.
+             Les deux reposent sur `throws_to_capture`, gelé au moment de la
+             capture — donc sur les seules lignes menées au bout. Une espèce
+             jamais capturée n'a pas de difficulté mesurable et n'apparaît pas.
+             Filtres partagés par les deux panneaux, comme la ligne des
+             apparitions : deux angles sur les mêmes données, des filtres
+             divergents entre eux se compareraient mal. -->
+        <div class="sdash-filter-bar" data-stats-filters="difficulty" hidden>
+          <div class="sdash-filter-group">
+            <span class="sdash-filter-label">Génération</span>
+            <div class="sdash-gen-tabs">
+              <button class="sdash-gen-tab active" data-diff-gen="all">Toutes</button>
+              <button class="sdash-gen-tab" data-diff-gen="1">Gen 1</button>
+              <button class="sdash-gen-tab" data-diff-gen="2">Gen 2</button>
+              <button class="sdash-gen-tab" data-diff-gen="3">Gen 3</button>
+              <button class="sdash-gen-tab" data-diff-gen="4" data-gen4 hidden>Gen 4</button>
+            </div>
+          </div>
+          <div class="sdash-filter-group">
+            <span class="sdash-filter-label">Rareté</span>
+            <div class="sdash-gen-tabs">
+              <button class="sdash-gen-tab active" data-diff-tier="all">Toutes</button>
+              <button class="sdash-gen-tab t-commun" data-diff-tier="commun">Commun</button>
+              <button class="sdash-gen-tab t-peuCommun" data-diff-tier="peuCommun">Peu commun</button>
+              <button class="sdash-gen-tab t-rare" data-diff-tier="rare">Rare</button>
+              <button class="sdash-gen-tab t-epique" data-diff-tier="epique">Épique</button>
+              <button class="sdash-gen-tab t-fabuleux" data-diff-tier="fabuleux">Fabuleux</button>
+              <button class="sdash-gen-tab t-legendaire" data-diff-tier="legendaire">Légendaire</button>
+            </div>
+          </div>
+          <!-- La ball filtrée est celle qui a CONCLU la capture (`captured_with`),
+               pas celle qu'on a dépensée en route : c'est le seul angle qui garde
+               un sens sur une moyenne de lancers. La Master Ball n'y figure pas et
+               est même exclue du calcul — elle capture à coup sûr, sa présence
+               tirerait toutes les moyennes vers 1. -->
+          <div class="sdash-filter-group">
+            <span class="sdash-filter-label">Ball</span>
+            <div class="sdash-gen-tabs">
+              <button class="sdash-gen-tab active" data-diff-ball="all">Toutes</button>
+              <button class="sdash-gen-tab b-pokeball" data-diff-ball="pokeball">Poké Ball</button>
+              <button class="sdash-gen-tab b-superball" data-diff-ball="superball">Super Ball</button>
+              <button class="sdash-gen-tab b-hyperball" data-diff-ball="hyperball">Hyper Ball</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sdash-row-2">
+          <div class="sdash-panel">
+            <div class="sdash-panel-header">
+              <div class="sdash-panel-head-row">
+                <div>
+                  <div class="sdash-panel-title">Pokémon les plus durs à capturer</div>
+                  <!-- Suit le filtre Ball : « Hyper Balls en moyenne pour
+                       l'attraper » (cf. renderDifficultyPanels). -->
+                  <div class="sdash-panel-note" id="sdash-hardest-note">Lancers en moyenne pour l'attraper</div>
+                </div>
+                <button class="sdash-filter-cog" type="button" data-filter-toggle="difficulty"
+                        aria-expanded="false" aria-label="Filtres" title="Filtres">⚙&#xFE0E;</button>
+              </div>
+            </div>
+            <div class="sdash-top-list sdash-top-list-scroll" id="sdash-hardest"></div>
+          </div>
+
+          <div class="sdash-panel">
+            <div class="sdash-panel-header">
+              <div class="sdash-panel-head-row">
+                <div>
+                  <div class="sdash-panel-title">Dresseurs qui lancent le plus</div>
+                  <div class="sdash-panel-note" id="sdash-throwers-note">Lancers en moyenne par capture</div>
+                </div>
+                <button class="sdash-filter-cog" type="button" data-filter-toggle="difficulty"
+                        aria-expanded="false" aria-label="Filtres" title="Filtres">⚙&#xFE0E;</button>
+              </div>
+            </div>
+            <div class="sdash-top-list sdash-top-list-scroll" id="sdash-top-throwers"></div>
+          </div>
+        </div>
+
+        <!-- Ligne 5 : progression par génération -->
         <div class="sdash-panel sdash-panel-full">
           <div class="sdash-panel-title">Progression de la communauté</div>
           <div class="sdash-gen-bars" id="sdash-gen-bars"></div>
@@ -280,6 +436,7 @@
               <button class="rank-tab-btn" data-stats-gen="1">Gen 1</button>
               <button class="rank-tab-btn" data-stats-gen="2">Gen 2</button>
               <button class="rank-tab-btn" data-stats-gen="3">Gen 3</button>
+              <button class="rank-tab-btn" data-stats-gen="4" data-gen4 hidden>Gen 4</button>
             </div>
           </div>
           <div class="ranking-list" id="rank-completion"></div>
@@ -292,6 +449,7 @@
               <button class="rank-tab-btn" data-first-gen="1">Gen 1</button>
               <button class="rank-tab-btn" data-first-gen="2">Gen 2</button>
               <button class="rank-tab-btn" data-first-gen="3">Gen 3</button>
+              <button class="rank-tab-btn" data-first-gen="4" data-gen4 hidden>Gen 4</button>
             </div>
           </div>
           <div class="ranking-list" id="sdash-first-capturers"></div>
@@ -317,11 +475,17 @@
   <div class="modal-overlay" id="modal-overlay">
     <div class="modal">
       <button class="modal-close" id="modal-close">✕</button>
-      <img class="modal-sprite" id="modal-sprite" src="" alt="">
-      <div class="modal-name" id="modal-name"></div>
-      <div class="modal-number" id="modal-number"></div>
-      <div class="modal-badges" id="modal-badges"></div>
+      <!-- Vue par défaut : la fiche de l'espèce. Le bouton « Détails » de
+           #modal-info la remplace par #modal-variants, une carte par forme,
+           méga ou shiny réellement possédée. -->
+      <div id="modal-summary">
+        <img class="modal-sprite" id="modal-sprite" src="" alt="">
+        <div class="modal-name" id="modal-name"></div>
+        <div class="modal-number" id="modal-number"></div>
+        <div class="modal-badges" id="modal-badges"></div>
+      </div>
       <div id="modal-info"></div>
+      <div class="modal-variants" id="modal-variants" hidden></div>
     </div>
   </div>
 
