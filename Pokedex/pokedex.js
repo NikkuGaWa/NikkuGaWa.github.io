@@ -79,6 +79,20 @@ const MEGA_EVOLUTIONS = {
   383: { slug: 'groudon-primal', nom: 'Primo-Groudon' },
   384: { slug: 'rayquaza-mega', nom: 'Méga-Rayquaza' },
   398: { slug: 'staraptor-mega', nom: 'Méga-Étouraptor' },
+  428: { slug: 'lopunny-mega', nom: 'Méga-Lockpin' },
+  445: [
+    { slug: 'garchomp-mega', nom: 'Méga-Carchacrok' },
+    { slug: 'garchomp-mega-z', nom: 'Méga-Carchacrok Z' }
+  ],
+  448: [
+    { slug: 'lucario-mega', nom: 'Méga-Lucario' },
+    { slug: 'lucario-mega-z', nom: 'Méga-Lucario Z' }
+  ],
+  460: { slug: 'abomasnow-mega', nom: 'Méga-Blizzaroi' },
+  475: { slug: 'gallade-mega', nom: 'Méga-Gallame' },
+  478: { slug: 'froslass-mega', nom: 'Méga-Momartik' },
+  485: { slug: 'heatran-mega', nom: 'Méga-Heatran' },
+  491: { slug: 'darkrai-mega', nom: 'Méga-Darkrai' },
 };
 
 const megaSpriteCache = {};
@@ -153,13 +167,60 @@ TIERS_DEF.legendaire.push(
   377,378,379,380,381,382,383,384,
 );
 
+/* ── Gen 4 ajoutée dans chaque tier ── */
+/* Visible du seul compte de prévisualisation (cf. GEN4_PREVIEW_LOGIN) : les
+   paliers sont posés ici sans condition, c'est POKEDEX_TOTAL qui les rend
+   inatteignables pour tout le monde d'autre — `renderRarityPanel` borne ses ids
+   à POKEDEX_TOTAL, et `isInPokedex` écarte tout ce qui dépasse. */
+TIERS_DEF.commun.push(
+  396,397,398,399,400,401,403,404,412,415,
+  420,421,422,431,432,436,449,450,451,452,
+  455,456,457,459,460,
+);
+TIERS_DEF.peuCommun.push(
+  402,405,406,408,413,414,418,419,423,424,
+  425,427,433,434,435,437,438,439,440,441,
+  446,447,453,454,458,
+);
+TIERS_DEF.rare.push(
+  387,388,390,391,393,394,
+  407,410,416,417,426,428,429,430,443,444,
+  461,462,463,464,465,466,467,469,470,471,
+  472,473,476,477,
+);
+TIERS_DEF.epique.push(
+  389,392,395,409,411,442,445,448,468,474,475,
+  478,479,489,
+);
+TIERS_DEF.fabuleux.push(
+  490,491,492,
+);
+TIERS_DEF.legendaire.push(
+  480,481,482,483,484,485,486,487,488,
+);
+
+/* ── Palier « Arceus » ── */
+/* Un palier pour un seul Pokémon. Il n'a pas de couleur : l'iridescence EST sa
+   couleur (cf. --arceus-spectrum dans pokedex.css), ce qui est aussi la raison
+   pour laquelle il ne pouvait pas se ranger dans un palier existant.
+   Comme #493 est un Pokémon de Gen 4, ce palier n'est atteignable que dans la
+   prévisualisation : hors de celle-ci, POKEDEX_TOTAL vaut 386 et la ligne
+   disparaît d'elle-même des compteurs — rien à masquer à la main.
+   Pas de bouton de filtre : un palier d'un seul Pokémon n'a rien à trier. */
+TIERS_DEF.arceus = [493];
+
 for (const [tier, ids] of Object.entries(TIERS_DEF)) {
   for (const id of ids) POKEMON_TIERS[id] = tier;
 }
 
-const TIER_LABELS = { commun:'Commun', peuCommun:'Peu commun', rare:'Rare', epique:'Épique', fabuleux:'Fabuleux', legendaire:'Légendaire' };
-const TIER_STARS  = { commun:'★', peuCommun:'★★', rare:'★★★', epique:'★★★★', fabuleux:'★★★★★', legendaire:'★★★★★★' };
-const TIER_COLORS = { commun:'#ffffff', peuCommun:'#4caf50', rare:'#2196f3', epique:'#e040fb', fabuleux:'#fa73ff', legendaire:'#f0d050' };
+const ARCEUS_TIER = 'arceus';
+
+const TIER_LABELS = { commun:'Commun', peuCommun:'Peu commun', rare:'Rare', epique:'Épique', fabuleux:'Fabuleux', legendaire:'Légendaire', arceus:'Arceus' };
+const TIER_STARS  = { commun:'★', peuCommun:'★★', rare:'★★★', epique:'★★★★', fabuleux:'★★★★★', legendaire:'★★★★★★', arceus:'★★★★★★★' };
+/* `arceus` n'a pas de couleur unique — la plaque est un dégradé. La valeur ici
+   n'est qu'un repli pour les usages qui attendent un `#rrggbb` ; tout le rendu
+   passe par les classes CSS `tier-arceus` / `tier-bg-arceus`. */
+const TIER_COLORS = { commun:'#ffffff', peuCommun:'#4caf50', rare:'#2196f3', epique:'#e040fb', fabuleux:'#fa73ff', legendaire:'#f0d050', arceus:'#c9a7ff' };
 
 const SPRITE_BASE  = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/';
 const SPRITE_SHINY = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/';
@@ -180,8 +241,11 @@ const UNOWN_FORMS = [
   { slug: 'unown-question',    label: '?' },
 ];
 
-const UNOWN_SPRITE_BASE  = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/';
-const UNOWN_SPRITE_SHINY = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/shiny/';
+/* Le jeu HOME, seul jeu complet PAR FORME. Zarbi s'en sert faute d'artwork par
+   lettre ; les formes cosmétiques de la Gen 4 (Cheniti, Ceriflor, Sancoki,
+   Tritosor) pour la même raison — cf. getFormSpriteUrl. */
+const HOME_SPRITE_BASE  = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/';
+const HOME_SPRITE_SHINY = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/shiny/';
 
 /* ════════════════════════════════════════════════
    FORMDEX — FORMES ALTERNATIVES (HORS MÉGA)
@@ -207,6 +271,64 @@ const POKEMON_FORMS = {
     { slug: 'deoxys-defense', nom: 'Deoxys Défense', artId: 10002 },
     { slug: 'deoxys-speed',   nom: 'Deoxys Vitesse', artId: 10003 },
   ],
+
+  /* ── Gen 4 ──
+     Noms repris des chaînes officielles du jeu (`form_names` de PokeAPI), pas
+     du champ `names`, qui contient des fautes de frappe (« Diagla Originel »).
+     Les slugs sont les noms de forme PokeAPI, donc valides pour
+     `captures_form_chk` (^[a-z0-9-]{1,32}$).
+     Ces espèces étant toutes de Gen 4, elles ne paraissent au Formdex que dans
+     la prévisualisation : getFormdexSpecies() filtre par isInPokedex(). */
+
+  // Cosmétiques : les trois capes partagent l'id 412, seul HOME les distingue.
+  412: [
+    { slug: 'burmy-plant', nom: 'Cheniti Cape Plante', home: '412-plant' },
+    { slug: 'burmy-sandy', nom: 'Cheniti Cape Sable',  home: '412-sandy' },
+    { slug: 'burmy-trash', nom: 'Cheniti Cape Déchet', home: '412-trash' },
+  ],
+  // Cheniselle, elle, a bien trois variantes distinctes (types différents).
+  413: [
+    { slug: 'wormadam-plant', nom: 'Cheniselle Cape Plante', artId: 413 },
+    { slug: 'wormadam-sandy', nom: 'Cheniselle Cape Sable',  artId: 10004 },
+    { slug: 'wormadam-trash', nom: 'Cheniselle Cape Déchet', artId: 10005 },
+  ],
+  421: [
+    { slug: 'cherrim-overcast', nom: 'Ceriflor Temps Couvert',    home: '421-overcast' },
+    { slug: 'cherrim-sunshine', nom: 'Ceriflor Temps Ensoleillé', home: '421-sunshine' },
+  ],
+  422: [
+    { slug: 'shellos-west', nom: 'Sancoki Mer Occident', home: '422-west' },
+    { slug: 'shellos-east', nom: 'Sancoki Mer Orient',   home: '422-east' },
+  ],
+  423: [
+    { slug: 'gastrodon-west', nom: 'Tritosor Mer Occident', home: '423-west' },
+    { slug: 'gastrodon-east', nom: 'Tritosor Mer Orient',   home: '423-east' },
+  ],
+  479: [
+    { slug: 'rotom',       nom: 'Motisma',         artId: 479 },
+    { slug: 'rotom-heat',  nom: 'Motisma Chaleur', artId: 10008 },
+    { slug: 'rotom-wash',  nom: 'Motisma Lavage',  artId: 10009 },
+    { slug: 'rotom-frost', nom: 'Motisma Froid',   artId: 10010 },
+    { slug: 'rotom-fan',   nom: 'Motisma Hélice',  artId: 10011 },
+    { slug: 'rotom-mow',   nom: 'Motisma Tonte',   artId: 10012 },
+  ],
+  483: [
+    { slug: 'dialga',        nom: 'Dialga',                  artId: 483 },
+    { slug: 'dialga-origin', nom: 'Dialga Forme Originelle', artId: 10245 },
+  ],
+  484: [
+    { slug: 'palkia',        nom: 'Palkia',                  artId: 484 },
+    { slug: 'palkia-origin', nom: 'Palkia Forme Originelle', artId: 10246 },
+  ],
+  // Giratina n'a pas de « base » : ses deux formes sont nommées.
+  487: [
+    { slug: 'giratina-altered', nom: 'Giratina Forme Alternative', artId: 487 },
+    { slug: 'giratina-origin',  nom: 'Giratina Forme Originelle',  artId: 10007 },
+  ],
+  492: [
+    { slug: 'shaymin-land', nom: 'Shaymin Forme Terrestre', artId: 492 },
+    { slug: 'shaymin-sky',  nom: 'Shaymin Forme Céleste',   artId: 10006 },
+  ],
 };
 
 /* Zarbi est dans le registre de l'overlay mais a déjà son Zarbidex : 28 lettres
@@ -219,15 +341,76 @@ const FORMDEX_EXCLUDED_IDS = new Set([UNOWN_ID]);
    ÉTAT
 ════════════════════════════════════════════════ */
 
-const POKEDEX_TOTAL = 386;
-const GENERATIONS = [
-  { id: 1, label: 'Génération 1', shortLabel: 'Gen 1', start: 1, end: 151 },
+/* ════════════════════════════════════════════════
+   GÉNÉRATION 4 — PRÉVISUALISATION
+   ────────────────────────────────────────────────
+   La Gen 4 n'est ouverte qu'au compte ci-dessous. Le reste des viewers doit voir
+   le site strictement inchangé : 386 partout, aucun onglet « Gen 4 », et les
+   captures d'ids > 386 ignorées comme elles l'étaient déjà.
+
+   Plutôt que de tester le drapeau dans la quarantaine d'endroits qui parlent de
+   générations, on ne le teste qu'UNE fois : `GENERATIONS` et `POKEDEX_TOTAL`
+   sont recalculés à la connexion (applyGen4Visibility) et tout le reste du
+   fichier continue de les lire tels quels. D'où le `let` — ce sont les deux
+   seules valeurs à devenir variables.
+
+   Conséquence à connaître : plus rien ne doit capturer `GENERATIONS` ou
+   `POKEDEX_TOTAL` dans une constante au chargement du script, avant que le
+   compte connecté soit connu.
+════════════════════════════════════════════════ */
+const GEN4_PREVIEW_LOGIN = 'nikkugawa';
+
+const ALL_GENERATIONS = [
+  { id: 1, label: 'Génération 1', shortLabel: 'Gen 1', start: 1,   end: 151 },
   { id: 2, label: 'Génération 2', shortLabel: 'Gen 2', start: 152, end: 251 },
   { id: 3, label: 'Génération 3', shortLabel: 'Gen 3', start: 252, end: 386 },
+  { id: 4, label: 'Génération 4', shortLabel: 'Gen 4', start: 387, end: 493 },
 ];
+
+const GEN4_ID = 4;
+
+/* Valeurs par défaut = celles d'avant la Gen 4 : un visiteur qui n'a pas encore
+   fini de s'authentifier voit le site tel qu'il a toujours été. */
+let GENERATIONS   = ALL_GENERATIONS.filter(g => g.id !== GEN4_ID);
+let POKEDEX_TOTAL = 386;
+
+function isGen4Visible() {
+  return !!state.user && String(state.user.login).toLowerCase() === GEN4_PREVIEW_LOGIN;
+}
+
+/* Le seul point où le drapeau est lu. Appelé à la connexion et à la
+   déconnexion, avant tout rendu et avant la lecture de l'état d'URL. */
+function applyGen4Visibility() {
+  const shown = isGen4Visible();
+
+  GENERATIONS   = shown ? ALL_GENERATIONS : ALL_GENERATIONS.filter(g => g.id !== GEN4_ID);
+  POKEDEX_TOTAL = GENERATIONS[GENERATIONS.length - 1].end;
+
+  /* `data-gen4` marque tout ce qui n'existe que dans la prévisualisation. */
+  document.querySelectorAll('[data-gen4]').forEach(el => { el.hidden = !shown; });
+
+  /* Un filtre resté sur la Gen 4 après un changement de compte viderait la
+     grille sans qu'aucun bouton visible ne l'explique — même règle que le repli
+     de `syncPokedexMode()`. */
+  if (shown) return;
+  for (const key of ['activeGenFilter', 'communityGenFilter', 'activeStatsGen',
+                     'dashRarityGen', 'throwGen', 'spawnGen', 'diffGen']) {
+    if (String(state[key]) === String(GEN4_ID)) state[key] = 'all';
+  }
+}
 
 function getGenerationTotal(gen) {
   return gen.end - gen.start + 1;
+}
+
+/* Bornes d'une génération telle qu'affichée, ou du Pokédex entier pour 'all'.
+   Remplace les ternaires `gen === '1' ? 1 : …` qui réécrivaient 151/251/386 à
+   la main : une génération de plus imposait de les retrouver toutes. */
+function getGenBounds(genId) {
+  const gen = GENERATIONS.find(g => String(g.id) === String(genId));
+  return gen
+    ? { min: gen.start, max: gen.end, total: getGenerationTotal(gen), label: gen.shortLabel }
+    : { min: 1, max: POKEDEX_TOTAL, total: POKEDEX_TOTAL, label: 'Total' };
 }
 
 /* La base contient des captures hors du Pokédex affiché (essais sur des
@@ -270,10 +453,24 @@ let state = {
   communitySearch: '',
   pokédexMode: 'normal', // 'normal' | 'mega' | 'form' | 'unown'
   dashRarityGen: 'all',
-  dashTopGen: 'all',
+  /* Un écrou par panneau, donc un état par panneau. Tous repliés au départ
+     (cf. syncStatsFilters). Les panneaux qui partagent une barre de filtres —
+     les deux d'apparitions, les deux de difficulté — partagent une clé : leurs
+     écrous la commandent ensemble. */
+  statsFiltersShown: { rarity: false, throws: false, spawn: false, difficulty: false },
   // Filtres de la ligne « apparitions », partagés par ses deux panneaux
   spawnGen: 'all',
   spawnTier: 'all',
+  // Filtres du panneau personnel « mes lancers de balls »
+  throwGen: 'all',
+  throwTier: 'all',
+  throwBall: 'all',   // 'all' | 'pokeball' | 'superball' | 'hyperball'
+  // Filtres de la ligne « difficulté », partagés par ses deux panneaux
+  diffGen: 'all',
+  diffTier: 'all',
+  diffBall: 'all',
+  // login → URL d'avatar, rempli une fois (cf. loadThrowerAvatars)
+  throwAvatars: {},
 };
 
 let _modalLastFocus = null;
@@ -282,14 +479,25 @@ let _modalLastFocus = null;
    DEEP-LINKING (URL HASH)
 ════════════════════════════════════════════════ */
 const VALID_VIEWS   = ['pokedex', 'communauté', 'stats', 'classements', 'dresseurs'];
+/* `arceus` n'y figure volontairement pas : le palier existe (plaque, carte,
+   ligne de rareté) mais ne se filtre pas — un seul Pokémon le compose. Sans
+   bouton à l'écran, l'accepter ici laisserait un deep-link `?filter=arceus`
+   vider la grille sans qu'aucun contrôle visible ne l'explique. */
 const VALID_FILTERS = ['all', 'captured', 'uncaptured', 'shiny', 'commun', 'peuCommun', 'rare', 'epique', 'fabuleux', 'legendaire'];
 /* Les filtres qui trient par rareté, par opposition à all/captured/shiny. */
 const TIER_FILTER_KEYS = ['commun', 'peuCommun', 'rare', 'epique', 'fabuleux', 'legendaire'];
-const VALID_GENS    = ['all', '1', '2', '3'];
 const VALID_MODES   = ['normal', 'mega', 'form', 'unown'];
 
 function pickAllowed(value, allowed, fallback) {
   return allowed.includes(value) ? value : fallback;
+}
+
+/* Les générations valides ne sont pas une liste figée : la Gen 4 n'existe que
+   pour le compte de prévisualisation. Un deep-link `?gen=4` arrivant chez
+   quelqu'un d'autre doit retomber sur « Toutes », pas vider la grille. */
+function pickGen(value) {
+  if (value === 'all') return 'all';
+  return GENERATIONS.some(g => String(g.id) === String(value)) ? String(value) : 'all';
 }
 
 function getUrlState() {
@@ -312,11 +520,11 @@ function getUrlState() {
   return {
     view,
     filter:          pickAllowed(params.get('filter'), VALID_FILTERS, 'all'),
-    gen:             pickAllowed(params.get('gen'), VALID_GENS, 'all'),
+    gen:             pickGen(params.get('gen')),
     mode:            pickAllowed(params.get('mode'), VALID_MODES, 'normal'),
     search:          params.get('search') || '',
     communityFilter: pickAllowed(params.get('cf'), VALID_FILTERS, 'all'),
-    communityGen:    pickAllowed(params.get('cg'), VALID_GENS, 'all'),
+    communityGen:    pickGen(params.get('cg')),
     communitySearch: params.get('cs') || '',
   };
 }
@@ -713,7 +921,7 @@ function getCapturedMegaForms(captures) {
 function getUnownSpriteUrl(slug, isShiny = false) {
   // slug « unown-b » → fichier « 201-b.png » côté PokeAPI
   const suffix = slug.slice('unown-'.length);
-  return `${isShiny ? UNOWN_SPRITE_SHINY : UNOWN_SPRITE_BASE}${UNOWN_ID}-${suffix}.png`;
+  return `${isShiny ? HOME_SPRITE_SHINY : HOME_SPRITE_BASE}${UNOWN_ID}-${suffix}.png`;
 }
 
 function getUnownTotal() {
@@ -779,7 +987,21 @@ function getFormdexSpecies() {
     .sort((a, b) => a.id - b.id);
 }
 
+/* Deux sources, selon ce que PokeAPI sait distinguer :
+
+   • `artId` — la forme est une VARIANTE à part entière (elle a son propre id),
+     donc son propre official-artwork. Cas de Morphéo, Deoxys, Cheniselle,
+     Motisma, Dialga, Palkia, Giratina, Shaymin.
+
+   • `home`  — la forme est COSMÉTIQUE : PokeAPI la range sous l'id de l'espèce,
+     et `official-artwork/412.png` est donc le même fichier pour les trois capes
+     de Cheniti. Seul le jeu HOME les nomme séparément (`412-plant`…). Même
+     situation que Zarbi, même repli. Concerne Cheniti, Ceriflor, Sancoki et
+     Tritosor.
+
+   Une entrée porte l'un ou l'autre, jamais les deux. */
 function getFormSpriteUrl(form, isShiny = false) {
+  if (form.home) return `${isShiny ? HOME_SPRITE_SHINY : HOME_SPRITE_BASE}${form.home}.png`;
   return `${isShiny ? SPRITE_SHINY : SPRITE_BASE}${form.artId}.png`;
 }
 
@@ -1269,6 +1491,32 @@ function getMegaEvolution(pokemonId) {
   return mega;
 }
 
+/* Les captures d'une FORME méga précise, extraites de celles de l'espèce.
+   Même règle que la grille du Megadex : on filtre par `mega_form` dès qu'au
+   moins une capture en porte un ; sinon — captures d'avant la colonne — seule
+   la PREMIÈRE forme déclarée compte, faute de pouvoir deviner laquelle. */
+function getCapturesForMegaForm(captures, pokemonId, slug) {
+  if (!captures.length) return [];
+
+  const withForm = captures.filter(c => c.mega_form);
+  if (withForm.length) return captures.filter(c => c.mega_form === slug);
+
+  const megaData = MEGA_EVOLUTIONS[pokemonId];
+  const first = Array.isArray(megaData) ? megaData[0]?.slug : megaData?.slug;
+  return slug === first ? captures : [];
+}
+
+/* Nom francisé d'une forme méga. La carte affiche `megaForm.nom` ; la modale
+   n'avait que `state.names[id]`, soit « Mysdibule » sous une carte annoncée
+   « Méga-Mysdibule ». */
+function getMegaFormName(pokemonId, slug) {
+  const megaData = MEGA_EVOLUTIONS[pokemonId];
+  if (!megaData) return null;
+
+  const forms = Array.isArray(megaData) ? megaData : [megaData];
+  return forms.find(f => f.slug === slug)?.nom || null;
+}
+
 async function getMegaSpriteUrl(pokemonId, megaForm = null, isShiny = false) {
   const mega = MEGA_EVOLUTIONS[pokemonId];
   if (!mega) return null;
@@ -1402,20 +1650,25 @@ async function openModal(id, captures, megaForm = null) {
   const tier     = POKEMON_TIERS[id];
   
   const capturedList = captures && captures.length > 0 ? captures : [];
-  const captured = capturedList.length > 0;
-  
-  // Filtrer les captures par forme si on est en mode mega
-  // NOTE: Cette logique suppose que la table Supabase a une colonne "mega_form" (VARCHAR)
-  // qui contient le slug de la forme (ex: 'charizard-mega-x', 'charizard-mega-y', etc.)
-  // Si tu n'as pas encore cette colonne, ajoute-la et peuple-la avec les données existantes
-  let displayedCaptures = capturedList;
-  if (state.pokédexMode === 'mega' && megaForm && capturedList.length > 0) {
-    const capturesWithForm = capturedList.filter(c => c.mega_form);
-    if (capturesWithForm.length > 0) {
-      displayedCaptures = capturedList.filter(c => c.mega_form === megaForm);
-    }
-  }
-  
+
+  /* La carte du Megadex transmet TOUTES les mégas de l'espèce, pas celles de la
+     forme cliquée : c'est ici qu'on redescend à la forme. */
+  const isMegaForm = state.pokédexMode === 'mega' && !!megaForm;
+  const displayedCaptures = isMegaForm
+    ? getCapturesForMegaForm(capturedList, id, megaForm)
+    : capturedList;
+
+  /* Déduit de la forme AFFICHÉE, jamais de l'espèce. Auparavant `captured`
+     était calculé sur `capturedList` AVANT ce filtrage : posséder une seule
+     méga d'une espèce ouvrait toutes ses autres formes en « capturé », avec le
+     nom de l'espèce et l'artwork d'une forme qu'on ne possède pas. */
+  const captured = displayedCaptures.length > 0;
+
+  /* Nom de la forme, pas de l'espèce — la carte annonce « Méga-Mysdibule », la
+     modale doit dire la même chose. Repli sur l'espèce pour une forme absente
+     du registre, plutôt qu'un titre vide. */
+  const displayName = (isMegaForm && getMegaFormName(id, megaForm)) || name;
+
   const hasShiny = displayedCaptures.some(c => c.is_shiny);
   const hasMega = displayedCaptures.some(c => c.is_mega);
 
@@ -1431,7 +1684,7 @@ async function openModal(id, captures, megaForm = null) {
 
   document.getElementById('modal-sprite').src       = spriteUrl;
   document.getElementById('modal-sprite').className = `modal-sprite${captured ? '' : ' silhouette'}`;
-  document.getElementById('modal-name').textContent   = captured ? name : '???';
+  document.getElementById('modal-name').textContent   = captured ? displayName : '???';
   document.getElementById('modal-number').textContent = `#${String(id).padStart(3, '0')}`;
 
   // Badges rareté + shiny + mega
@@ -1459,13 +1712,8 @@ async function openModal(id, captures, megaForm = null) {
 
   // Infos captures
   const info = document.getElementById('modal-info');
-  if (captured) {
-    info.innerHTML = displayedCaptures
-      .map(c => `<div class="poke-date" style="margin-top:6px">${c.is_shiny ? '✨ ' : ''}${c.is_mega ? '<img src="https://archives.bulbagarden.net/media/upload/c/cd/Mega_Evolution_key_stone_icon.png" alt="Keystone" style="width:12px; height:12px; margin-right:4px; vertical-align:middle;"> ' : ''}Capturé le ${formatDate(c.captured_at)}</div>`)
-      .join('');
-  } else {
-    info.innerHTML = `<div class="modal-not-captured">Pas encore capturé</div>`;
-  }
+  info.innerHTML = renderCaptureInfo(captured ? displayedCaptures : []);
+  wireCaptureDetails();
 
   const overlay = document.getElementById('modal-overlay');
   _modalLastFocus = document.activeElement;
@@ -1511,11 +1759,8 @@ function openUnownModal(slug, formCaptures = []) {
   }
 
   const info = document.getElementById('modal-info');
-  info.innerHTML = captured
-    ? formCaptures
-        .map(c => `<div class="poke-date" style="margin-top:6px">${c.is_shiny ? '✨ ' : ''}Capturé le ${formatDate(c.captured_at)}</div>`)
-        .join('')
-    : '<div class="modal-not-captured">Pas encore capturé</div>';
+  info.innerHTML = renderCaptureInfo(captured ? formCaptures : []);
+  wireCaptureDetails();
 
   const overlay = document.getElementById('modal-overlay');
   _modalLastFocus = document.activeElement;
@@ -1560,11 +1805,8 @@ function openFormModal(id, slug, formCaptures = []) {
   }
 
   const info = document.getElementById('modal-info');
-  info.innerHTML = captured
-    ? formCaptures
-        .map(c => `<div class="poke-date" style="margin-top:6px">${c.is_shiny ? '✨ ' : ''}Capturé le ${formatDate(c.captured_at)}</div>`)
-        .join('')
-    : '<div class="modal-not-captured">Pas encore capturé</div>';
+  info.innerHTML = renderCaptureInfo(captured ? formCaptures : []);
+  wireCaptureDetails();
 
   const overlay = document.getElementById('modal-overlay');
   _modalLastFocus = document.activeElement;
@@ -1573,10 +1815,26 @@ function openFormModal(id, slug, formCaptures = []) {
   trapFocus(overlay);
 }
 
+/* Repli de la vue « Détails ». Appelé à la FERMETURE, donc quel que soit
+   l'ouvreur suivant : la modale Communauté, par exemple, ne passe pas par
+   renderCaptureInfo() et rouvrait sinon sur les cartes du Pokémon précédent. */
+function resetModalDetails() {
+  const variants = document.getElementById('modal-variants');
+  const summary  = document.getElementById('modal-summary');
+
+  if (variants) {
+    variants.hidden = true;
+    variants.innerHTML = '';
+    variants.closest('.modal')?.classList.remove('details-open');
+  }
+  if (summary) summary.hidden = false;
+}
+
 function closeModal() {
   const overlay = document.getElementById('modal-overlay');
   const lastFocus = _modalLastFocus;
   overlay.classList.remove('open');
+  resetModalDetails();
   overlay.removeEventListener('keydown', overlay._trapHandler);
   if (lastFocus && typeof lastFocus.focus === 'function') {
     lastFocus.focus({ preventScroll: true });
@@ -1656,19 +1914,7 @@ async function loadStats(forceRefresh = false) {
 }
 
 function getStatsGenerationConfig() {
-  if (state.activeStatsGen === '1') {
-    return { label: 'Gen 1', min: 1, max: 151, total: 151 };
-  }
-
-  if (state.activeStatsGen === '2') {
-    return { label: 'Gen 2', min: 152, max: 251, total: 100 };
-  }
-
-  if (state.activeStatsGen === '3') {
-    return { label: 'Gen 3', min: 252, max: 386, total: 135 };
-  }
-
-  return { label: 'Total', min: 1, max: POKEDEX_TOTAL, total: POKEDEX_TOTAL };
+  return getGenBounds(state.activeStatsGen);
 }
 
 function renderStatsRanking() {
@@ -1970,9 +2216,7 @@ function renderBestTrainerCommuPanel(gen) {
   const el = document.getElementById('sdash-first-capturers');
   if (!el || !state.dashSortedByDate) return;
 
-  const minId = gen === '1' ? 1 : gen === '2' ? 152 : gen === '3' ? 252 : 1;
-  const maxId = gen === '1' ? 151 : gen === '2' ? 251 : gen === '3' ? 386 : POKEDEX_TOTAL;
-  const total = maxId - minId + 1;
+  const { min: minId, max: maxId, total } = getGenBounds(gen);
 
   const firstCapturers = {};
   const seenPokemon = new Set();
@@ -2005,10 +2249,9 @@ function renderRarityPanel(gen) {
   const capturedIds = state.dashCapturedIds;
   if (!capturedIds) return;
 
-  const minId = gen === '1' ? 1 : gen === '2' ? 152 : gen === '3' ? 252 : 1;
-  const maxId = gen === '1' ? 151 : gen === '2' ? 251 : gen === '3' ? 386 : POKEDEX_TOTAL;
+  const { min: minId, max: maxId } = getGenBounds(gen);
 
-  const TIERS_ORDER = ['legendaire','fabuleux','epique','rare','peuCommun','commun'];
+  const TIERS_ORDER = [ARCEUS_TIER,'legendaire','fabuleux','epique','rare','peuCommun','commun'];
 
   rarityEl.innerHTML = TIERS_ORDER.map(tier => {
     const ids      = (TIERS_DEF[tier] || []).filter(id => id >= minId && id <= maxId);
@@ -2058,28 +2301,660 @@ function renderTopPokemonRows(entries, emptyLabel = 'Aucune donnée') {
   }).join('');
 }
 
-function renderTopPokemonPanel(gen) {
-  const topEl = document.getElementById('sdash-top-pokemon');
-  if (!topEl || !state.dashAllRows) return;
+/* ─── Mes lancers de balls ─────────────────────── */
+/* Panneau PERSONNEL, le seul du tableau de bord : tout le reste parle de la
+   communauté. Source : la vue `user_pokemon_throw_counts`, filtrée sur le login
+   connecté (la table `user_pokemon_throws` et le RPC `record_ball_throw`
+   exigent `x-secret`, que ce site public ne peut pas porter).
 
-  const minId = gen === '1' ? 1 : gen === '2' ? 152 : gen === '3' ? 252 : 1;
-  const maxId = gen === '1' ? 151 : gen === '2' ? 251 : gen === '3' ? 386 : POKEDEX_TOTAL;
+   Une ligne = une VARIANTE réellement visée (espèce × shiny × méga × forme),
+   exactement la clé de `captures`. Le sprite et le nom suivent donc la variante,
+   pas l'espèce — c'est ce qui distingue deux lignes du même Pokémon.
 
-  const rows = state.dashAllRows.filter(r => {
-    const id = Number(r.pokemon_id);
-    return id >= minId && id <= maxId;
-  });
+   Rien n'a jamais été enregistré avant le déploiement de la migration : un
+   Pokédex complet peut parfaitement n'afficher aucun lancer. */
 
-  const pokemonCounts = {};
-  for (const r of rows) {
-    pokemonCounts[r.pokemon_id] = (pokemonCounts[r.pokemon_id] || 0) + 1;
+/* Les trois balls du classement. La Master Ball est volontairement absente :
+   elle capture à coup sûr (un lancer, une capture), une quatrième pastille
+   n'apprendrait rien — et un total « Toutes » supérieur à la somme des boutons
+   affichés passerait pour un bug. D'où la somme explicite ci-dessous plutôt que
+   la colonne `throws` de la vue, qui inclut la Master Ball. */
+const THROW_BALL_KEYS = ['pokeball', 'superball', 'hyperball'];
+
+/* Le dresseur connecté, en minuscules comme `user_login` en base. Le panneau
+   personnel suit toujours le compte connecté, jamais le Pokédex consulté via la
+   vue Dresseurs : « mes lancers » n'aurait plus de sens autrement. */
+function getOwnLogin() {
+  return state.user ? String(state.user.login).toLowerCase() : '';
+}
+
+/* `user_pokemon_throw_counts` ne porte que le login ; le nom d'affichage vit
+   dans `captures`, déjà chargé par le tableau de bord. Repli sur le login pour
+   un dresseur qui aurait lancé sans jamais rien attraper. */
+function getTrainerDisplayName(login) {
+  return (state.trainerNames && state.trainerNames[login]) || login;
+}
+
+function getThrowCount(row) {
+  if (state.throwBall !== 'all') return Number(row[`throws_${state.throwBall}`]) || 0;
+  return THROW_BALL_KEYS.reduce((sum, key) => sum + (Number(row[`throws_${key}`]) || 0), 0);
+}
+
+/* Génération et rareté, indépendantes et combinables — même règle que les
+   panneaux d'apparitions, bornes tirées de GENERATIONS. */
+function matchesThrowFilters(id) {
+  if (state.throwTier !== 'all' && POKEMON_TIERS[id] !== state.throwTier) return false;
+  if (state.throwGen === 'all') return true;
+
+  const gen = GENERATIONS.find(g => String(g.id) === state.throwGen);
+  return !!gen && id >= gen.start && id <= gen.end;
+}
+
+function hasActiveThrowFilters() {
+  return state.throwGen !== 'all' || state.throwTier !== 'all' || state.throwBall !== 'all';
+}
+
+/* Nom de la variante. Une méga ou une forme absente des registres locaux garde
+   le nom de son espèce : mieux vaut un nom générique qu'un slug brut à l'écran. */
+function getThrowLabel(row) {
+  const id    = Number(row.pokemon_id);
+  const name  = state.names[id] || `#${id}`;
+  let   label = name;
+
+  if (row.mega_form) {
+    const mega  = MEGA_EVOLUTIONS[id];
+    const forms = mega ? (Array.isArray(mega) ? mega : [mega]) : [];
+    const match = forms.find(f => f.slug === row.mega_form);
+    if (match) label = match.nom;
+  } else if (row.form) {
+    if (id === UNOWN_ID) {
+      const unown = UNOWN_FORMS.find(f => f.slug === row.form);
+      if (unown) label = `${name} ${unown.label}`;
+    } else {
+      const form = (POKEMON_FORMS[id] || []).find(f => f.slug === row.form);
+      if (form) label = form.nom;
+    }
   }
 
-  const topPokemon = Object.entries(pokemonCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 8);
+  return row.is_shiny ? `✨ ${label}` : label;
+}
 
-  topEl.innerHTML = renderTopPokemonRows(topPokemon);
+/* Sprite de la variante. Zarbi passe par le jeu HOME (pas d'official-artwork par
+   lettre), les autres formes par l'`artId` de leur variante PokeAPI.
+   Les mégas font exception : leur artwork n'est pas déductible d'une URL, il se
+   demande à PokeAPI en async. La ligne part donc sur le sprite de l'espèce et se
+   corrige après insertion (cf. applyMegaThrowSprites), comme le fait déjà la
+   grille du Megadex. */
+function getThrowSpriteUrl(row) {
+  const id    = Number(row.pokemon_id);
+  const shiny = !!row.is_shiny;
+
+  if (!row.mega_form && row.form) {
+    if (id === UNOWN_ID) {
+      if (UNOWN_FORMS.some(f => f.slug === row.form)) return getUnownSpriteUrl(row.form, shiny);
+    } else {
+      const form = (POKEMON_FORMS[id] || []).find(f => f.slug === row.form);
+      if (form) return getFormSpriteUrl(form, shiny);
+    }
+  }
+
+  return `${shiny ? SPRITE_SHINY : SPRITE_BASE}${id}.png`;
+}
+
+/* Markup volontairement calqué sur renderTopPokemonRows() — mêmes colonnes,
+   même barre proportionnelle au n°1 — mais pas partagé avec lui : la clé est ici
+   une variante, le sprite et le nom en dépendent, et les mégas ont besoin d'un
+   marqueur que l'autre panneau n'a pas. */
+function renderThrowRows(entries) {
+  const maxCount = entries[0][1] || 1;
+
+  return entries.map(([row, count], i) => {
+    const id     = Number(row.pokemon_id);
+    const tier   = POKEMON_TIERS[id];
+    const label  = getThrowLabel(row);
+    const barPct = Math.round((count / maxCount) * 100);
+    const megaAttr = row.mega_form
+      ? ` data-mega-slug="${escapeHtml(row.mega_form)}" data-mega-id="${id}" data-mega-shiny="${row.is_shiny ? '1' : '0'}"`
+      : '';
+
+    return `
+      <div class="sdash-top-row">
+        <span class="sdash-top-rank">#${i + 1}</span>
+        <img class="sdash-top-sprite${row.is_shiny ? ' is-shiny' : ''}" src="${getThrowSpriteUrl(row)}" alt="${escapeHtml(label)}" loading="lazy"${megaAttr}>
+        <span class="sdash-top-name tier-${tier}">${escapeHtml(label)}</span>
+        <div class="sdash-bar-track sdash-bar-inline">
+          <div class="sdash-bar-fill tier-bg-${tier}" style="width:${barPct}%;opacity:.27"></div>
+        </div>
+        <span class="sdash-top-val">${count}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+/* Les lignes sont déjà à l'écran avec le sprite de l'espèce ; chacune se corrige
+   quand PokeAPI répond. Un échec la laisse simplement sur l'espèce — c'est le
+   cas des mégas inventées (raichu-mega-x, absol-mega-z…), qui n'existent nulle
+   part côté PokeAPI. */
+function applyMegaThrowSprites(container) {
+  container.querySelectorAll('[data-mega-slug]').forEach(img => {
+    getMegaSpriteUrl(Number(img.dataset.megaId), img.dataset.megaSlug, img.dataset.megaShiny === '1')
+      .then(url => { if (url) img.src = url; });
+  });
+}
+
+function renderThrowPanel() {
+  document.querySelectorAll('[data-throw-gen]').forEach(b =>
+    b.classList.toggle('active', b.dataset.throwGen === state.throwGen)
+  );
+  document.querySelectorAll('[data-throw-tier]').forEach(b =>
+    b.classList.toggle('active', b.dataset.throwTier === state.throwTier)
+  );
+  document.querySelectorAll('[data-throw-ball]').forEach(b =>
+    b.classList.toggle('active', b.dataset.throwBall === state.throwBall)
+  );
+
+  const el = document.getElementById('sdash-my-throws');
+  if (!el || !state.throwRowsCache) return;
+
+  const login = getOwnLogin();
+  if (!login) {
+    showLoadError(el, 'Connecte-toi pour voir tes lancers.');
+    return;
+  }
+
+  const entries = state.throwRowsCache
+    // Panneau personnel : le fetch ramène toute la table (les panneaux de
+    // difficulté en ont besoin), le tri par dresseur se fait donc ici.
+    .filter(row => row.user_login === login)
+    // La vue accepte 1..1025, la grille s'arrête à POKEDEX_TOTAL : sans ce
+    // filtre un lancer de test hors dex s'afficherait sans nom ni sprite.
+    .filter(row => isInPokedex(row.pokemon_id) && matchesThrowFilters(Number(row.pokemon_id)))
+    .map(row => [row, getThrowCount(row)])
+    // Une variante sans aucun lancer de la ball choisie n'a rien à dire : sans
+    // ce filtre, « Hyper Ball » remplirait le panneau de zéros.
+    .filter(([, count]) => count > 0)
+    /* Pas de `slice` : classement complet parcouru au défilement, comme les
+       panneaux d'apparitions. Tronquer masquerait tout le bas du classement,
+       or c'est justement ce qu'un filtre sert à explorer. */
+    .sort((a, b) => b[1] - a[1]);
+
+  /* Un panneau vide à cause des filtres et un panneau vide faute de lancers
+     n'appellent pas la même réaction du lecteur. */
+  if (!entries.length) {
+    const empty = hasActiveThrowFilters() ? 'Aucun lancer pour ces filtres' : 'Aucun lancer enregistré';
+    el.innerHTML = `<div class="stats-empty">${escapeHtml(empty)}</div>`;
+    return;
+  }
+
+  el.innerHTML = renderThrowRows(entries);
+  applyMegaThrowSprites(el);
+}
+
+/* ─── Difficulté de capture ────────────────────── */
+/* Deux lectures du même jeu de lignes : « combien de balls faut-il pour
+   attraper cette espèce » et « combien ce dresseur en dépense par capture ».
+
+   Les deux reposent sur `throws_to_capture`, gelé sur la ligne au moment de la
+   capture — donc sur les seules lignes MENÉES AU BOUT (`captured_with` non nul).
+   Une espèce jamais capturée n'a pas de difficulté mesurable : elle n'apparaît
+   pas, plutôt que d'apparaître à zéro.
+
+   La Master Ball est écartée du calcul, filtre ou pas : elle capture à coup sûr,
+   donc `throws_to_capture` y vaut presque toujours 1. La garder tirerait chaque
+   moyenne vers le bas sans rien dire de la difficulté réelle. */
+function matchesDiffFilters(id) {
+  if (state.diffTier !== 'all' && POKEMON_TIERS[id] !== state.diffTier) return false;
+  if (state.diffGen === 'all') return true;
+
+  const gen = GENERATIONS.find(g => String(g.id) === state.diffGen);
+  return !!gen && id >= gen.start && id <= gen.end;
+}
+
+function hasActiveDiffFilters() {
+  return state.diffGen !== 'all' || state.diffTier !== 'all' || state.diffBall !== 'all';
+}
+
+/* Les captures retenues par la ligne « difficulté ». Un seul point de passage :
+   les deux panneaux doivent compter exactement le même sous-ensemble, sinon
+   leurs moyennes ne se comparent plus.
+
+   Le filtre Ball n'intervient PAS ici : il change le numérateur, jamais le
+   dénominateur (cf. getDiffThrowCount). Filtrer les lignes sur `captured_with`
+   conditionnerait la sélection au résultat — la ball qui a conclu est aussi
+   celle vers laquelle on escalade après avoir raté, et la moyenne « Hyper Ball »
+   pourrait sortir plus haute que la « Poké Ball », soit l'inverse de ce que
+   n'importe qui lit sur un tel classement.
+
+   Une capture conclue à la MASTER BALL est écartée : elle réussit à coup sûr et
+   tronque donc la série prématurément, ce qui tirerait la difficulté vers le
+   bas sans rien en dire. */
+function getDiffRows() {
+  if (!state.throwRowsCache) return [];
+
+  return state.throwRowsCache.filter(row => {
+    if (!row.captured_with || row.captured_with === 'masterball') return false;
+    // `captured_with` et `throws_to_capture` se posent ensemble en base ; ce
+    // garde-fou ne coûte rien et vaut confirmation que la ligne est bien allée
+    // au bout.
+    if (!(Number(row.throws_to_capture) >= 1)) return false;
+    // Bots exclus des stats communautaires. Ici le login est disponible tel
+    // quel, on compare donc dessus — c'est bien ce que contient la liste.
+    if (EXCLUDED_USER_NAMES.includes(row.user_login)) return false;
+
+    const id = Number(row.pokemon_id);
+    return isInPokedex(id) && matchesDiffFilters(id);
+  });
+}
+
+/* Ce qu'on additionne pour une capture. Décomposition ADDITIVE : « Toutes » vaut
+   la somme des trois compteurs, donc les trois moyennes par ball s'additionnent
+   pour redonner la moyenne « Toutes ». Le filtre se lit alors « sur les N
+   lancers qu'il a fallu, combien étaient des hyper balls » — le nombre affiché
+   correspond au bouton pressé, et la sémantique est celle du panneau voisin
+   « Mes lancers de balls ».
+
+   Les compteurs valent la série complète, pas seulement ce qui a précédé la
+   capture — mais depuis la migration « variantes », une variante déjà capturée
+   ne peut plus être visée (le lancer est refusé et remboursé), donc les deux
+   coïncident. La Master Ball reste hors de la somme, comme partout. */
+function getDiffThrowCount(row) {
+  if (state.diffBall !== 'all') return Number(row[`throws_${state.diffBall}`]) || 0;
+  return THROW_BALL_KEYS.reduce((sum, key) => sum + (Number(row[`throws_${key}`]) || 0), 0);
+}
+
+/* Virgule décimale : « 7,3 » à la française, comme le reste du site. */
+function formatThrowAverage(value) {
+  return value.toFixed(1).replace('.', ',');
+}
+
+function diffEmptyLabel(emptyLabel) {
+  return hasActiveDiffFilters() ? 'Aucune capture pour ces filtres' : emptyLabel;
+}
+
+/* Le sous-titre suit le filtre : sous « Hyper Ball », « lancers en moyenne »
+   laisserait croire à un total alors que le nombre ne compte plus que des hyper
+   balls. C'est exactement le décalage libellé / valeur qu'on cherche à éviter. */
+const DIFF_BALL_LABELS = {
+  pokeball:  'Poké Balls',
+  superball: 'Super Balls',
+  hyperball: 'Hyper Balls',
+};
+
+function diffThrowNoun() {
+  return DIFF_BALL_LABELS[state.diffBall] || 'Lancers';
+}
+
+/* Regroupe les captures retenues et en tire la moyenne. `n` reste le nombre de
+   captures — le dénominateur ne bouge pas avec le filtre Ball, c'est ce qui rend
+   les trois moyennes additives.
+   Les moyennes nulles sont écartées : sous « Hyper Ball », ce sont les espèces
+   (ou les dresseurs) qui n'en ont jamais lancé, pas un résultat. */
+function groupDiffAverages(keyOf) {
+  const acc = new Map();
+
+  for (const row of getDiffRows()) {
+    const key = keyOf(row);
+    if (key === null || key === undefined || key === '') continue;
+    const cur = acc.get(key) || { sum: 0, n: 0 };
+    cur.sum += getDiffThrowCount(row);
+    cur.n   += 1;
+    acc.set(key, cur);
+  }
+
+  return [...acc.entries()]
+    .map(([key, cur]) => ({ key, avg: cur.sum / cur.n, n: cur.n }))
+    .filter(e => e.avg > 0)
+    // À moyenne égale, le mieux échantillonné passe devant : c'est le plus solide
+    // des deux, et sans départage l'ordre dépendrait de celui de la table.
+    .sort((a, b) => b.avg - a.avg || b.n - a.n);
+}
+
+/* Moyenne par ESPÈCE : la variante (shiny, méga, forme) ne change pas le taux
+   de capture, seul le palier de rareté le fait. Agréger par espèce donne en
+   prime des échantillons moins minces. */
+function renderHardestPanel() {
+  const el = document.getElementById('sdash-hardest');
+  if (!el || !state.throwRowsCache) return;
+
+  const entries = groupDiffAverages(row => Number(row.pokemon_id));
+
+  if (!entries.length) {
+    el.innerHTML = `<div class="stats-empty">${escapeHtml(diffEmptyLabel('Aucune capture enregistrée'))}</div>`;
+    return;
+  }
+
+  const max = entries[0].avg || 1;
+
+  el.innerHTML = entries.map((e, i) => {
+    const id     = e.key;
+    const name   = state.names[id] || `#${id}`;
+    const tier   = POKEMON_TIERS[id];
+    const barPct = Math.round((e.avg / max) * 100);
+    return `
+      <div class="sdash-top-row" title="${escapeHtml(`${name} — ${diffThrowNoun().toLowerCase()} en moyenne sur ${e.n} capture${e.n > 1 ? 's' : ''}`)}">
+        <span class="sdash-top-rank">#${i + 1}</span>
+        <img class="sdash-top-sprite" src="${SPRITE_BASE}${id}.png" alt="${escapeHtml(name)}" loading="lazy">
+        <span class="sdash-top-name tier-${tier}">${escapeHtml(name)}</span>
+        <div class="sdash-bar-track sdash-bar-inline">
+          <div class="sdash-bar-fill tier-bg-${tier}" style="width:${barPct}%;opacity:.27"></div>
+        </div>
+        <span class="sdash-top-val">${formatThrowAverage(e.avg)}</span>
+        <span class="sdash-top-n">×${e.n}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+/* Classement en LIGNES, comme les autres panneaux du tableau de bord — pas le
+   podium de la vue Classements : il se parcourt au défilement sous des filtres
+   qui le rejouent en permanence, un podium n'aurait rien à mettre en vedette. */
+function renderTopThrowersPanel() {
+  const el = document.getElementById('sdash-top-throwers');
+  if (!el || !state.throwRowsCache) return;
+
+  const entries = groupDiffAverages(row => String(row.user_login || '').toLowerCase());
+
+  if (!entries.length) {
+    el.innerHTML = `<div class="stats-empty">${escapeHtml(diffEmptyLabel('Aucune capture enregistrée'))}</div>`;
+    return;
+  }
+
+  const max = entries[0].avg || 1;
+
+  el.innerHTML = entries.map((e, i) => {
+    const login  = e.key;
+    const name   = getTrainerDisplayName(login);
+    const barPct = Math.round((e.avg / max) * 100);
+    const user   = { name, avatar: state.throwAvatars[login] || '' };
+    return `
+      <div class="sdash-top-row" title="${escapeHtml(`${name} — ${diffThrowNoun().toLowerCase()} en moyenne sur ${e.n} capture${e.n > 1 ? 's' : ''}`)}">
+        <span class="sdash-top-rank">#${i + 1}</span>
+        ${avatarMarkup(user, 'rank-avatar')}
+        <span class="sdash-top-name">${escapeHtml(name)}</span>
+        <div class="sdash-bar-track sdash-bar-inline">
+          <div class="sdash-bar-fill sdash-bar-gold" style="width:${barPct}%;opacity:.35"></div>
+        </div>
+        <span class="sdash-top-val">${formatThrowAverage(e.avg)}</span>
+        <span class="sdash-top-n">×${e.n}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderDifficultyPanels() {
+  document.querySelectorAll('[data-diff-gen]').forEach(b =>
+    b.classList.toggle('active', b.dataset.diffGen === state.diffGen)
+  );
+  document.querySelectorAll('[data-diff-tier]').forEach(b =>
+    b.classList.toggle('active', b.dataset.diffTier === state.diffTier)
+  );
+  document.querySelectorAll('[data-diff-ball]').forEach(b =>
+    b.classList.toggle('active', b.dataset.diffBall === state.diffBall)
+  );
+
+  const noun = diffThrowNoun();
+  const hardestNote  = document.getElementById('sdash-hardest-note');
+  const throwersNote = document.getElementById('sdash-throwers-note');
+  if (hardestNote)  hardestNote.textContent  = `${noun} en moyenne pour l'attraper`;
+  if (throwersNote) throwersNote.textContent = `${noun} en moyenne par capture`;
+
+  renderHardestPanel();
+  renderTopThrowersPanel();
+}
+
+/* Les avatars ne dépendent pas des filtres : ils sont demandés UNE fois pour
+   tous les dresseurs présents dans la table, jamais à chaque clic. Les logins
+   restés sans réponse sont mémorisés à '' — sinon chaque rendu relancerait la
+   requête pour eux. Le panneau est déjà affiché (initiales en repli) quand elle
+   revient : c'est du confort, pas une dépendance. */
+async function loadThrowerAvatars() {
+  const logins = [...new Set(
+    (state.throwRowsCache || [])
+      .filter(row => row.captured_with && !EXCLUDED_USER_NAMES.includes(row.user_login))
+      .map(row => String(row.user_login || '').toLowerCase())
+  )].filter(login => login && !(login in state.throwAvatars));
+
+  if (!logins.length) return;
+
+  const avatars = await fetchTwitchUsersByLogin(logins);
+  for (const login of logins) state.throwAvatars[login] = avatars[login] || '';
+
+  renderTopThrowersPanel();
+}
+
+/* ─── Chargement des lancers ───────────────────── */
+/* Un seul fetch pour les trois panneaux : le personnel filtre sur le login, les
+   deux de difficulté agrègent toute la table. Deux requêtes se recouvriraient.
+
+   Chargement à part, et surtout try/catch à part, comme les apparitions : une
+   vue absente (migration pas passée, cache de schéma PostgREST pas rechargé) ne
+   doit afficher son erreur que sur ces panneaux. */
+/* Charge la table des lancers une seule fois pour toute la session, et la met à
+   disposition du tableau de bord ET du Pokédex (ball de capture sur les cartes).
+   Lève en cas d'échec : chaque appelant décide quoi afficher. */
+async function ensureThrowRows(forceRefresh = false) {
+  if (state.throwRowsCache && !forceRefresh) return state.throwRowsCache;
+
+  const rows = await fetchAllSupabaseRows(
+    /* `order=` explicite : sans lui fetchAllSupabaseRows ajoute son
+       STABLE_ROW_ORDER `id.asc`, or la vue n'a pas de colonne `id` → 400.
+       Et ordre TOTAL, login compris : sans lui deux lignes indiscernables
+       pour le tri pourraient se perdre ou se dupliquer d'une page à l'autre. */
+    `${CONFIG.supabase.url}/rest/v1/user_pokemon_throw_counts`
+      + `?select=user_login,pokemon_id,is_shiny,mega_form,form`
+      + `,throws_pokeball,throws_superball,throws_hyperball`
+      + `,throws_to_capture,captured_with`
+      + `&order=user_login.asc,pokemon_id.asc,is_shiny.asc`
+      + `,mega_form.asc.nullsfirst,form.asc.nullsfirst`,
+    {
+      'apikey': CONFIG.supabase.key,
+      'Authorization': `Bearer ${CONFIG.supabase.key}`,
+    }
+  );
+
+  state.throwRowsCache = rows;
+  /* Index par variante exacte, la même clé que `unique_capture` en base : c'est
+     ce qui permet de rattacher une ligne de `captures` à sa ligne de lancers.
+     Les NULL deviennent '' des deux côtés, sinon la clé ne se recompose pas. */
+  state.throwIndex = new Map(rows.map(r => [throwKey(r.user_login, r.pokemon_id, r.is_shiny, r.mega_form, r.form), r]));
+  return rows;
+}
+
+function throwKey(login, id, isShiny, megaForm, form) {
+  return [String(login || '').toLowerCase(), Number(id), isShiny ? 1 : 0, megaForm || '', form || ''].join('|');
+}
+
+/* Balls, telles que l'overlay les nomme (CAPTURE.rewardNames / ballEmoji). */
+const BALL_LABELS = {
+  pokeball: 'Poké Ball', superball: 'Super Ball',
+  hyperball: 'Hyper Ball', masterball: 'Master Ball',
+};
+const BALL_EMOJI = {
+  pokeball: '🔴', superball: '🔵', hyperball: '🟡', masterball: '🟣',
+};
+
+/* Pastille de ball : l'icône seule. Quatre couleurs franches se reconnaissent
+   d'un coup d'œil, là où le nom écrit alourdit chaque ligne. Le libellé complet
+   reste dans le `title` et l'`aria-label`, donc accessible au survol comme au
+   lecteur d'écran. */
+function renderBallTag(ball) {
+  const label = BALL_LABELS[ball];
+  if (!label) return '';
+
+  return `<span class="poke-ball-tag" title="Capturé à la ${escapeHtml(label)}"`
+    + ` aria-label="Capturé à la ${escapeHtml(label)}">${BALL_EMOJI[ball] || ''}</span>`;
+}
+
+/* Le nom affiché d'une capture : le nom de la MÉGA ou de la FORME quand il y en
+   a une (« Méga-Dracaufeu X », « Zarbi B »), le nom de l'espèce sinon. Le shiny
+   n'est pas un nom, c'est un préfixe — « ✨ Dracaufeu », jamais « ✨ Shiny ». */
+function getCaptureVariantLabel(capture) {
+  const id = Number(capture.pokemon_id);
+  // Repli sur l'espèce : une capture ordinaire porte simplement son nom.
+  let label = state.names[id] || `#${id}`;
+
+  if (capture.is_mega) {
+    label = getMegaFormName(id, capture.mega_form) || 'Méga-Évolution';
+  } else if (capture.form) {
+    if (id === UNOWN_ID) {
+      const unown = UNOWN_FORMS.find(f => f.slug === capture.form);
+      if (unown) label = `${state.names[id] || 'Zarbi'} ${unown.label}`;
+    } else {
+      const form = (POKEMON_FORMS[id] || []).find(f => f.slug === capture.form);
+      if (form) label = form.nom;
+    }
+  }
+
+  return capture.is_shiny ? `✨ ${label}` : label;
+}
+
+/* Une carte par variante possédée, affichée à la place de la fiche de l'espèce
+   quand on demande le détail. Chacune porte SON sprite — shiny, méga ou forme —
+   d'où la réutilisation de getThrowSpriteUrl(), qui attend exactement les mêmes
+   champs qu'une ligne de `captures`. Les mégas n'ont pas d'URL déductible : la
+   carte part sur le sprite de l'espèce et se corrige quand PokeAPI répond
+   (applyMegaThrowSprites, comme la grille du Megadex). */
+function renderVariantCards(captures, login = getDisplayedLogin()) {
+  return captures.map(c => {
+    const id      = Number(c.pokemon_id);
+    const info    = getCaptureThrowInfo(c, login);
+    const variant = getCaptureVariantLabel(c);
+    const megaAttr = c.mega_form
+      ? ` data-mega-slug="${escapeHtml(c.mega_form)}" data-mega-id="${id}" data-mega-shiny="${c.is_shiny ? '1' : '0'}"`
+      : '';
+
+    /* Ball et lancers sous la date. L'icône seule suffit à désigner la ball ;
+       son nom complet reste dans le `title` de la pastille. */
+    const meta = info
+      ? [renderBallTag(info.ball),
+         info.throws ? `${info.throws} lancer${info.throws > 1 ? 's' : ''}` : '']
+          .filter(Boolean).join(' · ')
+      : `<span class="modal-variant-unknown">lancers non enregistrés</span>`;
+
+    /* Les mêmes classes que la fiche (.modal-sprite / .modal-name /
+       .modal-number) : chaque variante est une carte à la taille exacte de
+       celle qu'on obtient en cliquant un Pokémon, rien n'est redéfini. */
+    return `
+      <div class="variant-card${c.is_shiny ? ' shiny-card' : ''}">
+        <img class="modal-sprite" src="${getThrowSpriteUrl(c)}" alt="${escapeHtml(variant)}" loading="lazy"${megaAttr}>
+        <div class="modal-name">${escapeHtml(variant)}</div>
+        <div class="modal-number">#${String(id).padStart(3, '0')}</div>
+        <div class="poke-date">${formatDate(c.captured_at)}</div>
+        <div class="poke-date">${meta}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* Le bloc « captures » de la fiche, commun aux trois modales.
+
+   En tête, la capture la plus récente et la ball qui l'a conclue — c'est ce
+   qu'on vient vérifier le plus souvent. « Détails » remplace ensuite la fiche
+   de l'espèce par une carte PAR VARIANTE, avec sa ball et son nombre de lancers.
+
+   Les captures sont triées de la plus récente à la plus ancienne. */
+function renderCaptureInfo(captures, login = getDisplayedLogin()) {
+  // Toute ouverture repart de la vue fiche, jamais de l'état laissé la fois d'avant.
+  resetModalDetails();
+
+  const variants = document.getElementById('modal-variants');
+  if (!captures.length) return `<div class="modal-not-captured">Pas encore capturé</div>`;
+
+  // Ordre chronologique : la première capture d'abord, comme on les a obtenues.
+  const ordered = [...captures].sort(
+    (a, b) => String(a.captured_at || '').localeCompare(String(b.captured_at || ''))
+  );
+
+  /* Le résumé porte donc la PREMIÈRE capture — celle qui a fait entrer l'espèce
+     au Pokédex, et déjà celle qu'affiche la vignette de la grille. */
+  const first     = ordered[0];
+  const firstInfo = getCaptureThrowInfo(first, login);
+  const line      = [`Capturé le ${formatDate(first.captured_at)}`];
+  if (firstInfo?.ball) line.push(renderBallTag(firstInfo.ball));
+
+  if (variants) variants.innerHTML = renderVariantCards(ordered, login);
+
+  const count = ordered.length;
+  return `
+    <div class="poke-date">${line.join(' · ')}</div>
+    <button class="modal-details-toggle" type="button" aria-expanded="false" aria-controls="modal-variants">
+      Détails${count > 1 ? ` (${count})` : ''}<i></i>
+    </button>
+  `;
+}
+
+/* Rebranché après chaque `innerHTML` : le bouton est recréé à chaque ouverture,
+   un listener posé une fois pour toutes ne survivrait pas. */
+function wireCaptureDetails() {
+  const btn      = document.querySelector('.modal-details-toggle');
+  const variants = document.getElementById('modal-variants');
+  const summary  = document.getElementById('modal-summary');
+  if (!btn || !variants) return;
+
+  // Le libellé d'origine porte le compte (« Détails (3) ») : on le mémorise
+  // plutôt que de le reconstruire, sinon le retour le perdrait.
+  const labelNode  = btn.firstChild;
+  const labelFerme = labelNode.textContent;
+
+  btn.addEventListener('click', () => {
+    const show = variants.hidden;
+    variants.hidden = !show;
+    if (summary) summary.hidden = show;
+    btn.setAttribute('aria-expanded', show ? 'true' : 'false');
+    labelNode.textContent = show ? 'Retour' : labelFerme;
+
+    /* La fiche s'élargit pour la grille : 380 px ne tiennent pas dix colonnes,
+       et les 28 Zarbi n'ont d'intérêt que vus ensemble. */
+    variants.closest('.modal')?.classList.toggle('details-open', show);
+
+    // Les artworks de méga n'arrivent qu'ici, une fois les cartes à l'écran.
+    if (show) applyMegaThrowSprites(variants);
+  });
+}
+
+/* Le dresseur dont le Pokédex est à l'écran : soi-même, ou celui qu'on consulte
+   depuis la vue Dresseurs. C'est lui dont on veut les lancers. */
+function getDisplayedLogin() {
+  const login = state.adminViewingUser?.login || state.user?.login || '';
+  return String(login).toLowerCase();
+}
+
+/* Ball de capture et nombre de lancers pour UNE capture précise.
+   `null` tant que rien n'a été enregistré pour cette variante — la table des
+   lancers ne remonte pas avant son déploiement, et l'immense majorité des
+   captures existantes n'y figure pas. Les appelants n'affichent alors rien. */
+function getCaptureThrowInfo(capture, login = getDisplayedLogin()) {
+  if (!state.throwIndex || !capture) return null;
+
+  const row = state.throwIndex.get(
+    throwKey(login, capture.pokemon_id, capture.is_shiny, capture.mega_form, capture.form)
+  );
+  if (!row) return null;
+
+  const ball   = row.captured_with || null;
+  const throws = Number(row.throws_to_capture) > 0 ? Number(row.throws_to_capture) : null;
+  return (ball || throws) ? { ball, throws } : null;
+}
+
+async function loadThrowStats(forceRefresh = false) {
+  try {
+    await ensureThrowRows(forceRefresh);
+  } catch (e) {
+    console.error(e);
+    // Remis à null : un cache périmé ne doit pas rester affichable après un échec.
+    state.throwRowsCache = null;
+    state.throwIndex = null;
+    showLoadError(document.getElementById('sdash-my-throws'),     'Lancers indisponibles.');
+    showLoadError(document.getElementById('sdash-hardest'),       'Lancers indisponibles.');
+    showLoadError(document.getElementById('sdash-top-throwers'),  'Lancers indisponibles.');
+    return;
+  }
+
+  renderThrowPanel();
+  renderDifficultyPanels();
+
+  // Fire-and-forget : les avatars n'ont pas à retarder l'affichage du classement.
+  loadThrowerAvatars().catch(() => {});
 }
 
 /* ─── Apparitions ──────────────────────────────── */
@@ -2167,6 +3042,84 @@ async function loadSpawnStats(forceRefresh = false) {
   renderSpawnPanels();
 }
 
+/* ─── Interrupteur des filtres, un par panneau ─── */
+/* Chaque panneau replie ses propres filtres derrière son écrou. Repliés au
+   départ : on vient d'abord y lire des chiffres, et une rangée de pastilles en
+   tête de chaque panneau les noie avant qu'une donnée ait été montrée.
+
+   Un groupe = une clé d'état + un `data-stats-filters` + un ou plusieurs
+   `data-filter-toggle`. Les deux panneaux d'apparitions partagent une barre, donc
+   un groupe : leurs deux écrous la commandent et restent forcément d'accord. */
+const STATS_FILTER_GROUPS = ['rarity', 'throws', 'spawn', 'difficulty'];
+
+/* Replier remet les filtres DE CE GROUPE sur « toutes ». Même règle que
+   resetPokedexFilters() au Zarbidex : un filtre encore actif sans contrôle
+   visible pour l'expliquer ferait passer un panneau réduit — voire vide — pour
+   un panneau sans données.
+   Renvoie `true` si quelque chose a effectivement bougé, pour ne re-rendre que
+   dans ce cas. */
+function resetStatsFilterGroup(group) {
+  if (group === 'rarity') {
+    if (state.dashRarityGen === 'all') return false;
+    state.dashRarityGen = 'all';
+    /* Le panneau rareté ne raccorde pas ses propres pastilles, contrairement aux
+       deux autres : c'est fait ici. */
+    document.querySelectorAll('[data-rarity-gen]').forEach(b =>
+      b.classList.toggle('active', b.dataset.rarityGen === state.dashRarityGen)
+    );
+    renderRarityPanel(state.dashRarityGen);
+    return true;
+  }
+
+  if (group === 'throws') {
+    if (!hasActiveThrowFilters()) return false;
+    state.throwGen  = 'all';
+    state.throwTier = 'all';
+    state.throwBall = 'all';
+    renderThrowPanel();
+    return true;
+  }
+
+  if (group === 'spawn') {
+    if (!hasActiveSpawnFilters()) return false;
+    state.spawnGen  = 'all';
+    state.spawnTier = 'all';
+    renderSpawnPanels();
+    return true;
+  }
+
+  if (group === 'difficulty') {
+    if (!hasActiveDiffFilters()) return false;
+    state.diffGen  = 'all';
+    state.diffTier = 'all';
+    state.diffBall = 'all';
+    renderDifficultyPanels();
+    return true;
+  }
+
+  return false;
+}
+
+/* L'état JS fait autorité ; l'attribut `hidden` du HTML n'est là que pour éviter
+   que les filtres n'apparaissent une fraction de seconde avant le script.
+   Sans argument, remet tous les groupes d'aplomb (appel de démarrage). */
+function syncStatsFilters(group) {
+  const groups = group ? [group] : STATS_FILTER_GROUPS;
+
+  for (const key of groups) {
+    const shown = !!state.statsFiltersShown[key];
+
+    document.querySelectorAll(`[data-filter-toggle="${key}"]`).forEach(btn =>
+      btn.setAttribute('aria-expanded', shown ? 'true' : 'false')
+    );
+    document.querySelectorAll(`[data-stats-filters="${key}"]`).forEach(el => {
+      el.hidden = !shown;
+    });
+
+    if (!shown) resetStatsFilterGroup(key);
+  }
+}
+
 /* ════════════════════════════════════════════════
    STATS DASHBOARD
 ════════════════════════════════════════════════ */
@@ -2185,7 +3138,6 @@ async function loadStatsDashboard(forceRefresh = false) {
   } catch (e) {
     console.error(e);
     showLoadError(document.getElementById('sdash-rarity-list'), 'Statistiques indisponibles.');
-    showLoadError(document.getElementById('sdash-top-pokemon'), 'Statistiques indisponibles.');
     showLoadError(document.getElementById('sdash-gen-bars'), 'Statistiques indisponibles.');
     return;
   }
@@ -2193,6 +3145,15 @@ async function loadStatsDashboard(forceRefresh = false) {
   const allRows = state.statsDashCache.filter(r =>
     !EXCLUDED_USER_NAMES.includes(String(r.user_name || '').toLowerCase())
   );
+
+  /* login → nom d'affichage, pour le classement des dresseurs : la vue des
+     lancers ne porte que le login. Reconstruite à chaque chargement plutôt que
+     mémorisée, sinon un forceRefresh laisserait des noms périmés. */
+  state.trainerNames = {};
+  for (const r of allRows) {
+    const key = String(r.user_login || '').toLowerCase();
+    if (key && !state.trainerNames[key]) state.trainerNames[key] = r.user_name || key;
+  }
 
   // ── KPIs ──────────────────────────────────────
   const allCapturedIds = new Set(allRows.map(r => r.pokemon_id).filter(isInPokedex));
@@ -2213,13 +3174,6 @@ async function loadStatsDashboard(forceRefresh = false) {
     b.classList.toggle('active', b.dataset.rarityGen === state.dashRarityGen)
   );
   renderRarityPanel(state.dashRarityGen);
-
-  // ── Top pokémon les plus capturés ─────────────
-  state.dashAllRows = allRows;
-  document.querySelectorAll('[data-top-gen]').forEach(b =>
-    b.classList.toggle('active', b.dataset.topGen === state.dashTopGen)
-  );
-  renderTopPokemonPanel(state.dashTopGen);
 
   // ── Progression par génération (communauté) ───
   const genBarsEl = document.getElementById('sdash-gen-bars');
@@ -2242,9 +3196,13 @@ async function loadStatsDashboard(forceRefresh = false) {
     `;
   }).join('');
 
-  /* En dernier, et sur son propre fetch : les panneaux ci-dessus sont déjà à
-     l'écran quand la vue des apparitions répond. */
-  await loadSpawnStats(forceRefresh);
+  /* En dernier, et sur leurs propres fetchs : les panneaux ci-dessus sont déjà à
+     l'écran quand les deux vues répondent. En parallèle — elles n'ont rien à se
+     dire — et sans risque de rejet : chacune gère son erreur en interne. */
+  await Promise.all([
+    loadThrowStats(forceRefresh),
+    loadSpawnStats(forceRefresh),
+  ]);
 }
 
 /* ════════════════════════════════════════════════
@@ -2399,6 +3357,7 @@ function showLoggedOut(loading) {
   clearStoredToken();
   state.user = null;
   state.twitchToken = null;
+  applyGen4Visibility();
   document.getElementById('page-pokedex').style.display = 'none';
   document.getElementById('page-landing').style.display = 'flex';
   loading.classList.remove('show');
@@ -2443,6 +3402,11 @@ async function init() {
   }
 
   state.user = user;
+  /* Avant tout rendu ET avant applyUrlState() : c'est ici que GENERATIONS et
+     POKEDEX_TOTAL prennent leur valeur définitive pour la session, et que
+     `pickGen()` saura si `?gen=4` est recevable. */
+  applyGen4Visibility();
+
   document.getElementById('user-avatar').src       = user.profile_image_url;
   document.getElementById('user-name').textContent = user.display_name;
 
@@ -2465,6 +3429,13 @@ async function init() {
   }
 
   loading.classList.remove('show');
+
+  /* Les lancers alimentent la ball des cartes et le détail des captures. Chargés
+     après coup et sans bloquer : une table indisponible doit coûter la ball, pas
+     le Pokédex. Un second rendu les fait apparaître quand ils arrivent. */
+  ensureThrowRows()
+    .then(() => { if (!capturesFailed) renderGrid(); })
+    .catch(e => console.warn('Lancers indisponibles — les cartes resteront sans ball', e));
 
   applyUrlState(pendingUrlState);
 
@@ -2491,6 +3462,8 @@ document.getElementById('btn-logout').addEventListener('click', () => {
   state.captures    = [];
   state.ownCaptures = [];
   state.adminViewingUser = null;
+  // Referme la Gen 4 : le prochain visiteur de cet onglet n'y a pas droit.
+  applyGen4Visibility();
 
   document.getElementById('page-pokedex').style.display = 'none';
   document.getElementById('page-landing').style.display = 'flex';
@@ -2617,6 +3590,19 @@ document.getElementById('community-filter-search').addEventListener('input', e =
 });
 
 // ─── Onglets du tableau de bord Statistiques ──
+document.querySelectorAll('[data-filter-toggle]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const group = btn.dataset.filterToggle;
+    state.statsFiltersShown[group] = !state.statsFiltersShown[group];
+    // Le groupe entier est resynchronisé, pas ce seul bouton : les deux écrous
+    // des apparitions doivent bouger ensemble.
+    syncStatsFilters(group);
+  });
+});
+
+// Aligne le DOM sur l'état au chargement : c'est lui qui fait autorité.
+syncStatsFilters();
+
 document.querySelectorAll('[data-rarity-gen]').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('[data-rarity-gen]').forEach(b => b.classList.remove('active'));
@@ -2626,12 +3612,51 @@ document.querySelectorAll('[data-rarity-gen]').forEach(btn => {
   });
 });
 
-document.querySelectorAll('[data-top-gen]').forEach(btn => {
+/* Filtres du panneau « mes lancers ». Trois groupes indépendants et
+   combinables ; renderThrowPanel() raccorde les classes `active` à l'état, les
+   listeners n'ont donc pas à les manipuler — un clic ne touche que son groupe. */
+document.querySelectorAll('[data-throw-gen]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-top-gen]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    state.dashTopGen = btn.dataset.topGen;
-    renderTopPokemonPanel(state.dashTopGen);
+    state.throwGen = btn.dataset.throwGen;
+    renderThrowPanel();
+  });
+});
+
+document.querySelectorAll('[data-throw-tier]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.throwTier = btn.dataset.throwTier;
+    renderThrowPanel();
+  });
+});
+
+document.querySelectorAll('[data-throw-ball]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.throwBall = btn.dataset.throwBall;
+    renderThrowPanel();
+  });
+});
+
+/* Filtres de la ligne « difficulté », partagés par ses deux panneaux : ils
+   agrègent le même sous-ensemble sous deux angles, des filtres divergents entre
+   eux se compareraient mal. */
+document.querySelectorAll('[data-diff-gen]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.diffGen = btn.dataset.diffGen;
+    renderDifficultyPanels();
+  });
+});
+
+document.querySelectorAll('[data-diff-tier]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.diffTier = btn.dataset.diffTier;
+    renderDifficultyPanels();
+  });
+});
+
+document.querySelectorAll('[data-diff-ball]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.diffBall = btn.dataset.diffBall;
+    renderDifficultyPanels();
   });
 });
 
