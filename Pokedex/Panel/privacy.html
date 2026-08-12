@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PokéTwitch — Politique de confidentialité</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a12;
+      --bg2: #14141f;
+      --border: rgba(240,208,80,0.16);
+      --gold: #f0d050;
+      --text: #e8e8f0;
+      --muted: #9a9ab0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', system-ui, sans-serif;
+      line-height: 1.65;
+      padding: 40px 20px 80px;
+    }
+    main { max-width: 760px; margin: 0 auto; }
+    h1 { font-size: 1.8rem; color: var(--gold); margin-bottom: 6px; }
+    h2 { font-size: 1.1rem; color: var(--gold); margin: 32px 0 10px; }
+    p, li { color: var(--text); margin-bottom: 10px; }
+    ul { padding-left: 22px; }
+    .updated { color: var(--muted); font-size: 0.9rem; margin-bottom: 28px; }
+    .box {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin: 20px 0;
+    }
+    strong { color: var(--gold); font-weight: 500; }
+    a { color: var(--gold); }
+    code {
+      background: rgba(255,255,255,0.06);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+    footer { color: var(--muted); font-size: 0.85rem; margin-top: 40px; }
+  </style>
+</head>
+<body>
+<main>
+
+  <h1>Politique de confidentialité</h1>
+  <p class="updated">Extension Twitch « PokéTwitch » — dernière mise à jour : 12 août 2026</p>
+
+  <p>
+    Cette extension affiche le classement des dresseurs de la chaîne et, si tu le demandes,
+    ton Pokédex personnel. Cette page décrit les seules données qu'elle utilise.
+  </p>
+
+  <div class="box">
+    <p style="margin:0">
+      <strong>En résumé :</strong> l'extension ne dépose aucun cookie, n'enregistre rien sur ton
+      appareil, ne fait aucune publicité ni analyse d'audience, et n'écrit rien dans la base de
+      données. Elle ne fait que lire des données de jeu déjà publiques sur la chaîne.
+    </p>
+  </div>
+
+  <h2>1. Ce que l'extension consulte</h2>
+  <ul>
+    <li>
+      <strong>Ton identifiant Twitch</strong>, et uniquement si tu as accepté le
+      <em>lien d'identité</em> en cliquant sur « Lier mon compte ». Tant que tu ne l'as pas
+      accepté, l'extension ne reçoit aucun identifiant et l'onglet « Mon Pokédex » reste fermé.
+    </li>
+    <li>
+      <strong>Ton nom de compte Twitch</strong> (login et pseudo affiché), retrouvé à partir de cet
+      identifiant. Cette correspondance a été enregistrée quand tu as parlé dans le chat de la
+      chaîne ; l'extension ne fait que la lire.
+    </li>
+    <li>
+      <strong>Tes captures de Pokémon sur la chaîne</strong> : espèce, date, et si le Pokémon était
+      shiny. Ce sont des données de jeu, déjà visibles publiquement dans le classement et sur le
+      site du Pokédex.
+    </li>
+  </ul>
+
+  <h2>2. À quoi ça sert</h2>
+  <p>
+    À une seule chose : savoir quel Pokédex t'appartient, pour t'afficher ta progression plutôt que
+    celle de quelqu'un d'autre. Le classement, lui, s'affiche sans aucune donnée personnelle.
+  </p>
+
+  <h2>3. Ce que l'extension ne fait pas</h2>
+  <ul>
+    <li>Aucune collecte d'adresse e-mail, de mot de passe, d'adresse postale ni de moyen de paiement.</li>
+    <li>Aucun cookie, aucun <code>localStorage</code>, aucune trace laissée sur ton appareil.</li>
+    <li>Aucune publicité, aucun traceur, aucune mesure d'audience.</li>
+    <li>Aucune revente ni transmission de données à des fins commerciales.</li>
+    <li>Aucune écriture : l'extension lit la base de données, elle n'y ajoute et n'y modifie rien.</li>
+  </ul>
+
+  <h2>4. Où vont ces données</h2>
+  <p>L'extension interroge directement les services suivants depuis ton navigateur :</p>
+  <ul>
+    <li>
+      <strong>Supabase</strong> — hébergeur de la base de données du jeu (classement, captures,
+      correspondance identifiant ↔ pseudo). Reçoit ton identifiant Twitch le temps de la requête
+      qui retrouve ton pseudo.
+    </li>
+    <li>
+      <strong>decapi.me</strong> — service tiers qui renvoie la photo de profil publique d'un
+      compte Twitch. Reçoit uniquement des noms de comptes, jamais ton identifiant.
+    </li>
+    <li>
+      <strong>GitHub</strong> (<code>raw.githubusercontent.com</code>) — images des Pokémon.
+    </li>
+    <li>
+      <strong>Google Fonts</strong> — polices d'écriture de l'interface.
+    </li>
+  </ul>
+  <p>
+    Comme pour toute ressource chargée sur le web, ces services voient l'adresse IP de ton
+    navigateur. Aucune donnée personnelle ne leur est envoyée au-delà de ce qui est décrit ici.
+  </p>
+
+  <h2>5. Conservation</h2>
+  <p>
+    L'extension ne conserve rien : tout ce qu'elle affiche est rechargé à chaque ouverture et
+    disparaît quand tu fermes la page. Les captures et la correspondance identifiant ↔ pseudo sont
+    conservées dans la base de la chaîne tant que le jeu existe, parce qu'elles constituent ta
+    progression.
+  </p>
+
+  <h2>6. Retirer ton consentement</h2>
+  <p>
+    Tu peux révoquer le lien d'identité à tout moment depuis les paramètres de ton compte Twitch
+    (section <em>Connexions</em> / <em>Extensions</em>). L'onglet « Mon Pokédex » redevient alors
+    inaccessible et l'extension ne reçoit plus aucun identifiant.
+  </p>
+  <p>
+    Pour demander la suppression de tes captures et de ton pseudo de la base de données, écris à
+    l'adresse ci-dessous. La demande sera traitée dans un délai raisonnable.
+  </p>
+
+  <h2>7. Contact</h2>
+  <p>
+    Responsable de l'extension : <strong>NikkuGaWa</strong><br>
+    Contact : <strong>[À COMPLÉTER — adresse e-mail de contact]</strong>
+  </p>
+
+  <h2>8. Modifications</h2>
+  <p>
+    Toute évolution de cette politique sera publiée sur cette page, avec une nouvelle date de mise
+    à jour en haut du document.
+  </p>
+
+  <footer>
+    Extension non affiliée à Twitch Interactive, Inc. ni à Nintendo / Game Freak / The Pokémon
+    Company. Les noms et images de Pokémon appartiennent à leurs ayants droit respectifs.
+  </footer>
+
+</main>
+</body>
+</html>
