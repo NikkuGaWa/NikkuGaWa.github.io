@@ -663,33 +663,6 @@ function getTokenFromHash() {
   return urlToken;
 }
 
-/* Un token du flow implicite peut avoir été émis pour une AUTRE application et
-   injecté ici. /oauth2/validate est le seul moyen de vérifier à qui il
-   appartient réellement — et au passage qu'il n'est pas expiré. */
-async function validateTwitchToken(token) {
-  let res;
-  try {
-    res = await fetch('https://id.twitch.tv/oauth2/validate', {
-      headers: { 'Authorization': `OAuth ${token}` },
-    });
-  } catch (e) {
-    console.error('Validation du token impossible', e);
-    return null;
-  }
-
-  if (!res.ok) return null;
-
-  const data = await res.json();
-
-  if (data.client_id !== CONFIG.twitch.clientId) {
-    console.error('Token émis pour une autre application — rejeté');
-    return null;
-  }
-  if (typeof data.expires_in === 'number' && data.expires_in <= 0) return null;
-
-  return data;
-}
-
 /* Révoque le token côté Twitch : sans ça, la « déconnexion » le laisse valide
    plusieurs semaines. Best-effort, ne bloque jamais la déconnexion locale. */
 function revokeTwitchToken(token) {
@@ -706,6 +679,21 @@ function revokeTwitchToken(token) {
   }).catch(() => {});
 }
 
+/* Un token du flow implicite peut avoir été émis pour une AUTRE application et
+   injecté ici : cet appel est donc aussi la VALIDATION du token, pas seulement
+   la lecture du profil.
+
+   Il ne passe volontairement pas par `/oauth2/validate` : ce dernier n'accepte
+   le token qu'en en-tête `Authorization`, ce qui déclenche un préflight CORS
+   auquel `id.twitch.tv` ne répond pas (préflight 200 mais AUCUN
+   `Access-Control-Allow-Origin`). Depuis une origine statique — donc en
+   production sur nikkugawa.github.io — le fetch échouait systématiquement et
+   TOUT LE MONDE restait déconnecté. `api.twitch.tv/helix` renvoie
+   `Access-Control-Allow-Origin: *`, lui.
+
+   La garantie est identique : Twitch exige que le `Client-ID` de l'en-tête soit
+   celui pour lequel le token a été émis, et répond 401 sinon. Un token d'une
+   autre application, expiré ou révoqué ne peut donc pas passer cette porte. */
 async function fetchTwitchUser(token) {
   const res = await fetch('https://api.twitch.tv/helix/users', {
     headers: {
@@ -3380,26 +3368,23 @@ async function init() {
 
   clearOAuthFragment();
 
-  // Le token doit être validé avant d'être utilisé : il peut être expiré, ou
-  // avoir été émis pour une autre application.
-  const validation = await validateTwitchToken(token);
-  if (!validation) {
-    showLoggedOut(loading);
-    return;
-  }
-
-  state.twitchToken = token;
-
+  /* Le token doit être validé avant d'être utilisé : il peut être expiré, ou
+     avoir été émis pour une autre application. C'est `fetchTwitchUser()` qui
+     porte cette vérification (cf. son commentaire) — d'où l'affectation de
+     `state.twitchToken` seulement APRÈS, pour qu'aucune requête Twitch ne
+     puisse partir avec un token pas encore éprouvé. */
   let user;
   try {
     user = await fetchTwitchUser(token);
     if (!user) throw new Error('User not found');
   } catch (e) {
-    // Échec d'authentification : le token est invalide ou révoqué
+    // Échec d'authentification : le token est invalide, expiré ou révoqué
     console.error(e);
     showLoggedOut(loading);
     return;
   }
+
+  state.twitchToken = token;
 
   state.user = user;
   /* Avant tout rendu ET avant applyUrlState() : c'est ici que GENERATIONS et
