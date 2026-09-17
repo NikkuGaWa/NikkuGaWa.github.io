@@ -70,13 +70,10 @@
       <div class="pokedex-view-toggle">
         <button class="toggle-btn active" id="pokédex-toggle-normal" data-toggle="normal">Pokédex</button>
         <button class="toggle-btn" id="pokédex-toggle-mega" data-toggle="mega">Megadex <img src="https://archives.bulbagarden.net/media/upload/c/cd/Mega_Evolution_key_stone_icon.png" alt="Keystone" class="keystone-icon" style="display:inline-block; width:16px; height:16px; margin-left:4px; vertical-align:middle;"></button>
-        <!-- Formes alternatives hors méga, une section par espèce. Zarbi en est exclu,
-             il a son Zarbidex. Révélé par syncPokedexMode() uniquement si le dresseur
-             possède au moins une espèce à formes, forme identifiée ou non. -->
+        <!-- Révélé par syncPokedexMode() si le dresseur possède une espèce à formes. -->
         <button class="toggle-btn" id="pokédex-toggle-form" data-toggle="form" style="display:none">Formdex</button>
-        <!-- Révélé par syncPokedexMode() uniquement si le dresseur possède au moins un Zarbi.
-             Le libellé est écrit en alphabet Zarbi, monté par renderUnownWords() ;
-             aria-label porte le texte lisible pour les lecteurs d'écran. -->
+        <!-- Révélé par syncPokedexMode() si le dresseur possède un Zarbi. Libellé en
+             alphabet Zarbi, monté par renderUnownWords() ; aria-label pour les lecteurs d'écran. -->
         <button class="toggle-btn" id="pokédex-toggle-unown" data-toggle="unown" style="display:none"
                 aria-label="Zarbidex" title="Zarbidex">
           <span class="unown-word" data-unown-word="zarbidex" aria-hidden="true"></span>
@@ -120,6 +117,19 @@
 
     <!-- Vue Communauté -->
     <div id="view-community" style="display:none">
+
+      <!-- Les quatre modes du Pokédex perso, alimentés par les captures de tout le monde.
+           Toujours visibles ici : un Formdex vide dit « personne ne l'a ». -->
+      <div class="pokedex-view-toggle">
+        <button class="toggle-btn active" data-community-toggle="normal">Pokédex</button>
+        <button class="toggle-btn" data-community-toggle="mega">Megadex <img src="https://archives.bulbagarden.net/media/upload/c/cd/Mega_Evolution_key_stone_icon.png" alt="Keystone" class="keystone-icon" style="display:inline-block; width:16px; height:16px; margin-left:4px; vertical-align:middle;"></button>
+        <button class="toggle-btn" data-community-toggle="form">Formdex</button>
+        <!-- Libellé en alphabet Zarbi, peint par renderUnownWords(). -->
+        <button class="toggle-btn" data-community-toggle="unown"
+                aria-label="Zarbidex" title="Zarbidex">
+          <span class="unown-word" data-unown-word="zarbidex" aria-hidden="true"></span>
+        </button>
+      </div>
 
       <div class="progress-bar-wrap">
         <div class="progress-inner">
@@ -184,13 +194,8 @@
           </div>
         </div>
 
-        <!-- Chaque panneau replie ses propres filtres derrière un écrou, muet et de
-             la taille du titre. Repliés au départ : on vient d'abord lire des
-             chiffres, et des rangées de pastilles au-dessus de chaque panneau les
-             noient avant qu'une donnée ait été montrée.
-             Replier remet les filtres DE CE PANNEAU sur « toutes » (cf.
-             syncStatsFilters) — un filtre actif sans contrôle visible pour
-             l'expliquer ferait passer un panneau réduit pour un panneau vide. -->
+        <!-- Chaque panneau replie ses filtres derrière un écrou, repliés au départ.
+             Replier remet les filtres du panneau sur « toutes » (cf. syncStatsFilters). -->
 
         <!-- Ligne 2 : répartition par rareté + mes lancers de balls -->
         <div class="sdash-row-2">
@@ -213,17 +218,9 @@
             <div class="sdash-rarity-list" id="sdash-rarity-list"></div>
           </div>
 
-          <!-- Panneau PERSONNEL : les balls que le dresseur connecté a lancées sur
-               chaque Pokémon. Lecture par la vue `user_pokemon_throw_counts`
-               (table `user_pokemon_throws` fermée, RPC `record_ball_throw` sous
-               `x-secret` que ce site public ne peut pas porter).
-               Une ligne par variante réellement visée — shiny, méga, forme —
-               comme la clé de `captures` : le sprite affiché est celui de la
-               variante, pas celui de l'espèce.
-               La Master Ball n'a pas de bouton et ne compte nulle part ici : elle
-               capture à coup sûr (un lancer, une capture), et un total « Toutes »
-               supérieur à la somme des trois boutons visibles passerait pour un
-               bug plutôt que pour une information. -->
+          <!-- Le seul panneau personnel : les balls que le dresseur connecté a lancées.
+               Une ligne par variante visée, comme la clé de captures. La Master Ball n'a pas
+               de bouton et ne compte nulle part : elle capture à coup sûr. -->
           <div class="sdash-panel">
             <div class="sdash-panel-header">
               <div class="sdash-panel-head-row">
@@ -233,10 +230,8 @@
               </div>
             </div>
 
-            <!-- Trois groupes indépendants et combinables : Gen 2 + Épique +
-                 Hyper Ball ne garde que les épiques de Gen 2 visés à l'Hyper
-                 Ball. Empilés (et non sur une ligne comme la barre partagée des
-                 apparitions) : la colonne fait la moitié de la largeur. -->
+            <!-- Trois groupes indépendants et combinables. Empilés et non sur une ligne :
+                 la colonne fait la moitié de la largeur. -->
             <div class="sdash-filter-bar sdash-filter-bar-panel" data-stats-filters="throws" hidden>
               <div class="sdash-filter-group">
                 <span class="sdash-filter-label">Génération</span>
@@ -275,18 +270,10 @@
           </div>
         </div>
 
-        <!-- Ligne 3 : apparitions (table `pokemon_spawns`, alimentée par l'overlay
-             à chaque spawn — attrapé ou non, contrairement aux panneaux ci-dessus
-             qui ne parlent que de captures). Lecture par la vue publique
-             `pokemon_spawn_counts`, le site n'ayant pas le secret. -->
-        <!-- Filtres partagés par les deux panneaux : ils montrent le même jeu de
-             données sous deux angles, des filtres divergents entre eux se
-             compareraient mal. Génération et rareté sont indépendants et se
-             combinent (Gen 2 + Épique = les épiques de Gen 2).
-             Une seule barre, donc DEUX écrous qui la commandent — un par panneau,
-             comme partout ailleurs : depuis celui qu'on regarde, le contrôle est
-             sous la main. Ils partagent le groupe « spawn » et restent donc
-             toujours dans le même état. -->
+        <!-- Ligne 3 : apparitions. L'overlay les compte à chaque spawn, attrapé ou non,
+             contrairement aux panneaux ci-dessus. Lecture par la vue pokemon_spawn_counts. -->
+        <!-- Barre partagée par les deux panneaux : ils montrent les mêmes données sous deux
+             angles. Deux écrous la commandent, un par panneau, sur le même groupe. -->
         <div class="sdash-filter-bar" data-stats-filters="spawn" hidden>
           <div class="sdash-filter-group">
             <span class="sdash-filter-label">Génération</span>
@@ -336,15 +323,9 @@
           </div>
         </div>
 
-        <!-- Ligne 4 : difficulté de capture. Deux lectures du MÊME jeu de lignes
-             (`user_pokemon_throw_counts`, déjà chargé pour « mes lancers ») :
-             par espèce, puis par dresseur.
-             Les deux reposent sur `throws_to_capture`, gelé au moment de la
-             capture — donc sur les seules lignes menées au bout. Une espèce
-             jamais capturée n'a pas de difficulté mesurable et n'apparaît pas.
-             Filtres partagés par les deux panneaux, comme la ligne des
-             apparitions : deux angles sur les mêmes données, des filtres
-             divergents entre eux se compareraient mal. -->
+        <!-- Ligne 4 : difficulté de capture, par espèce puis par dresseur. Seules les lignes
+             menées au bout comptent — une espèce jamais capturée n'a pas de difficulté mesurable.
+             Filtres partagés, comme la ligne des apparitions. -->
         <div class="sdash-filter-bar" data-stats-filters="difficulty" hidden>
           <div class="sdash-filter-group">
             <span class="sdash-filter-label">Génération</span>
@@ -368,11 +349,8 @@
               <button class="sdash-gen-tab t-legendaire" data-diff-tier="legendaire">Légendaire</button>
             </div>
           </div>
-          <!-- La ball filtrée est celle qui a CONCLU la capture (`captured_with`),
-               pas celle qu'on a dépensée en route : c'est le seul angle qui garde
-               un sens sur une moyenne de lancers. La Master Ball n'y figure pas et
-               est même exclue du calcul — elle capture à coup sûr, sa présence
-               tirerait toutes les moyennes vers 1. -->
+          <!-- La ball filtrée est celle qui a conclu la capture. Master Ball absente et même
+               exclue du calcul : elle tirerait toutes les moyennes vers 1. -->
           <div class="sdash-filter-group">
             <span class="sdash-filter-label">Ball</span>
             <div class="sdash-gen-tabs">
@@ -390,8 +368,7 @@
               <div class="sdash-panel-head-row">
                 <div>
                   <div class="sdash-panel-title">Pokémon les plus durs à capturer</div>
-                  <!-- Suit le filtre Ball : « Hyper Balls en moyenne pour
-                       l'attraper » (cf. renderDifficultyPanels). -->
+                  <!-- Suit le filtre Ball (cf. renderDifficultyPanels). -->
                   <div class="sdash-panel-note" id="sdash-hardest-note">Lancers en moyenne pour l'attraper</div>
                 </div>
                 <button class="sdash-filter-cog" type="button" data-filter-toggle="difficulty"
@@ -475,9 +452,8 @@
   <div class="modal-overlay" id="modal-overlay">
     <div class="modal">
       <button class="modal-close" id="modal-close">✕</button>
-      <!-- Vue par défaut : la fiche de l'espèce. Le bouton « Détails » de
-           #modal-info la remplace par #modal-variants, une carte par forme,
-           méga ou shiny réellement possédée. -->
+      <!-- Vue par défaut : la fiche de l'espèce. Le bouton « Détails » la remplace par
+           #modal-variants, une carte par variante possédée. -->
       <div id="modal-summary">
         <img class="modal-sprite" id="modal-sprite" src="" alt="">
         <div class="modal-name" id="modal-name"></div>
