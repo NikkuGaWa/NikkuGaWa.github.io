@@ -168,7 +168,6 @@ TIERS_DEF.legendaire.push(
 );
 
 /* ── Gen 4 ajoutée dans chaque tier ── */
-// Posés sans condition : POKEDEX_TOTAL les rend inatteignables hors prévisualisation.
 TIERS_DEF.commun.push(
   396,397,398,399,400,401,403,404,412,415,
   420,421,422,431,432,436,449,450,451,452,
@@ -312,47 +311,18 @@ const FORMDEX_EXCLUDED_IDS = new Set([UNOWN_ID]);
 ════════════════════════════════════════════════ */
 
 /* ════════════════════════════════════════════════
-   GÉNÉRATION 4 — PRÉVISUALISATION
+   GÉNÉRATIONS
 ════════════════════════════════════════════════ */
-// GENERATIONS et POKEDEX_TOTAL sont recalculés à la connexion plutôt que testés
-// partout : tout le fichier les lit tels quels. Rien ne doit donc les capturer
-// dans une constante au chargement du script.
-const GEN4_PREVIEW_LOGIN = 'nikkugawa';
-
-const ALL_GENERATIONS = [
+// Tout le fichier lit GENERATIONS et POKEDEX_TOTAL : ouvrir une génération, c'est
+// une ligne ici.
+const GENERATIONS = [
   { id: 1, label: 'Génération 1', shortLabel: 'Gen 1', start: 1,   end: 151 },
   { id: 2, label: 'Génération 2', shortLabel: 'Gen 2', start: 152, end: 251 },
   { id: 3, label: 'Génération 3', shortLabel: 'Gen 3', start: 252, end: 386 },
   { id: 4, label: 'Génération 4', shortLabel: 'Gen 4', start: 387, end: 493 },
 ];
 
-const GEN4_ID = 4;
-
-// Défauts d'avant la Gen 4 : un visiteur pas encore authentifié voit le site inchangé.
-let GENERATIONS   = ALL_GENERATIONS.filter(g => g.id !== GEN4_ID);
-let POKEDEX_TOTAL = 386;
-
-function isGen4Visible() {
-  return !!state.user && String(state.user.login).toLowerCase() === GEN4_PREVIEW_LOGIN;
-}
-
-// Seul point où le drapeau est lu. Appelé avant tout rendu et avant applyUrlState().
-function applyGen4Visibility() {
-  const shown = isGen4Visible();
-
-  GENERATIONS   = shown ? ALL_GENERATIONS : ALL_GENERATIONS.filter(g => g.id !== GEN4_ID);
-  POKEDEX_TOTAL = GENERATIONS[GENERATIONS.length - 1].end;
-
-  /* `data-gen4` marque tout ce qui n'existe que dans la prévisualisation. */
-  document.querySelectorAll('[data-gen4]').forEach(el => { el.hidden = !shown; });
-
-  // Un filtre resté sur la Gen 4 viderait la grille sans qu'un bouton visible l'explique.
-  if (shown) return;
-  for (const key of ['activeGenFilter', 'communityGenFilter', 'activeStatsGen',
-                     'dashRarityGen', 'throwGen', 'spawnGen', 'diffGen']) {
-    if (String(state[key]) === String(GEN4_ID)) state[key] = 'all';
-  }
-}
+const POKEDEX_TOTAL = GENERATIONS[GENERATIONS.length - 1].end;
 
 function getGenerationTotal(gen) {
   return gen.end - gen.start + 1;
@@ -366,7 +336,7 @@ function getGenBounds(genId) {
     : { min: 1, max: POKEDEX_TOTAL, total: POKEDEX_TOTAL, label: 'Total' };
 }
 
-// La base contient des captures hors du Pokédex affiché : sans ce filtre, « 388 / 386 ».
+// La base accepte des ids au-delà du Pokédex affiché : sans ce filtre, « 495 / 493 ».
 function isInPokedex(id) {
   const numId = Number(id);
   return Number.isInteger(numId) && numId >= 1 && numId <= POKEDEX_TOTAL;
@@ -384,6 +354,7 @@ let state = {
   ownCaptures:  [],
   names:        {},
   activeFilter: 'all',
+  activeVariant: 'all',   // 'all' | 'normal' | 'shiny' — cf. filterByVariant()
   activeGenFilter: 'all',
   activeStatsGen: 'all',
   searchQuery:  '',
@@ -394,6 +365,7 @@ let state = {
   communityCaptures: [],
   communityBySpecies: {},        // { id: [variantes] } — grilles et modale
   communityFilter: 'all',
+  communityVariant: 'all',
   communityGenFilter: 'all',
   communitySearch: '',
   communityMode: 'normal', // 'normal' | 'mega' | 'form' | 'unown'
@@ -425,20 +397,36 @@ let _modalLastFocus = null;
 const VALID_VIEWS   = ['pokedex', 'communauté', 'stats', 'classements', 'dresseurs'];
 // arceus n'y figure pas : un palier d'un seul Pokémon n'a pas de bouton de filtre,
 // et un deep-link ?filter=arceus viderait la grille sans contrôle visible pour l'expliquer.
-const VALID_FILTERS = ['all', 'captured', 'uncaptured', 'shiny', 'commun', 'peuCommun', 'rare', 'epique', 'fabuleux', 'legendaire'];
-/* Les filtres qui trient par rareté, par opposition à all/captured/shiny. */
+const VALID_FILTERS = ['all', 'captured', 'uncaptured', 'commun', 'peuCommun', 'rare', 'epique', 'fabuleux', 'legendaire'];
+/* Les filtres qui trient par rareté, par opposition à all/captured/uncaptured. */
 const TIER_FILTER_KEYS = ['commun', 'peuCommun', 'rare', 'epique', 'fabuleux', 'legendaire'];
+/* Seconde rangée, indépendante de la première. */
+const VALID_VARIANTS = ['all', 'normal', 'shiny'];
+// Clé d'état et attribut de bouton de chaque rangée, lus par setVariant().
+const VARIANT_SCOPES = {
+  own:       { key: 'activeVariant',    attr: 'variant',           dataset: 'variant' },
+  community: { key: 'communityVariant', attr: 'community-variant', dataset: 'communityVariant' },
+};
 const VALID_MODES   = ['normal', 'mega', 'form', 'unown'];
 
 function pickAllowed(value, allowed, fallback) {
   return allowed.includes(value) ? value : fallback;
 }
 
-// La Gen 4 n'existe que pour le compte de prévisualisation : ?gen=4 doit retomber
-// sur « Toutes » chez les autres, pas vider la grille.
+// Une génération inconnue (?gen=9) retombe sur « Toutes » au lieu de vider la grille.
 function pickGen(value) {
   if (value === 'all') return 'all';
   return GENERATIONS.some(g => String(g.id) === String(value)) ? String(value) : 'all';
+}
+
+// Un ancien lien ?filter=shiny voulait dire « possédé en shiny » : c'est désormais
+// Capturés + variante Shiny, deux rangées distinctes.
+function pickFilterAndVariant(rawFilter, rawVariant) {
+  if (rawFilter === 'shiny') return { filter: 'captured', variant: 'shiny' };
+  return {
+    filter:  pickAllowed(rawFilter, VALID_FILTERS, 'all'),
+    variant: pickAllowed(rawVariant, VALID_VARIANTS, 'all'),
+  };
 }
 
 function getUrlState() {
@@ -458,14 +446,18 @@ function getUrlState() {
   if (!VALID_VIEWS.includes(view)) return {};
 
   const params = new URLSearchParams(rawQuery || '');
+  const own       = pickFilterAndVariant(params.get('filter'), params.get('variant'));
+  const community = pickFilterAndVariant(params.get('cf'), params.get('cv'));
   return {
     view,
-    filter:          pickAllowed(params.get('filter'), VALID_FILTERS, 'all'),
-    gen:             pickGen(params.get('gen')),
-    mode:            pickAllowed(params.get('mode'), VALID_MODES, 'normal'),
-    search:          params.get('search') || '',
-    communityFilter: pickAllowed(params.get('cf'), VALID_FILTERS, 'all'),
-    communityGen:    pickGen(params.get('cg')),
+    filter:           own.filter,
+    variant:          own.variant,
+    gen:              pickGen(params.get('gen')),
+    mode:             pickAllowed(params.get('mode'), VALID_MODES, 'normal'),
+    search:           params.get('search') || '',
+    communityFilter:  community.filter,
+    communityVariant: community.variant,
+    communityGen:     pickGen(params.get('cg')),
     communityMode:   pickAllowed(params.get('cm'), VALID_MODES, 'normal'),
     communitySearch: params.get('cs') || '',
   };
@@ -476,10 +468,12 @@ function updateUrlState() {
   const params = new URLSearchParams();
 
   if (state.activeFilter !== 'all')       params.set('filter', state.activeFilter);
+  if (state.activeVariant !== 'all')      params.set('variant', state.activeVariant);
   if (state.activeGenFilter !== 'all')    params.set('gen', state.activeGenFilter);
   if (state.pokédexMode !== 'normal')     params.set('mode', state.pokédexMode);
   if (state.searchQuery)                  params.set('search', state.searchQuery);
   if (state.communityFilter !== 'all')    params.set('cf', state.communityFilter);
+  if (state.communityVariant !== 'all')   params.set('cv', state.communityVariant);
   if (state.communityGenFilter !== 'all') params.set('cg', state.communityGenFilter);
   if (state.communityMode !== 'normal')   params.set('cm', state.communityMode);
   if (state.communitySearch)              params.set('cs', state.communitySearch);
@@ -500,8 +494,10 @@ function applyUrlState(urlState = getUrlState()) {
   state.communityGenFilter = urlState.communityGen;
   state.communityMode      = urlState.communityMode;
   state.communitySearch    = urlState.communitySearch.trim().toLowerCase();
+  setVariant('own', urlState.variant);
+  setVariant('community', urlState.communityVariant);
 
-  document.querySelectorAll('#view-pokedex .filter-btn').forEach(b => {
+  document.querySelectorAll('#view-pokedex [data-filter]').forEach(b => {
     b.classList.toggle('active', b.dataset.filter === state.activeFilter);
   });
   document.querySelectorAll('#view-pokedex .gen-filter-btn').forEach(b => {
@@ -511,7 +507,7 @@ function applyUrlState(urlState = getUrlState()) {
     b.classList.toggle('active', b.dataset.toggle === state.pokédexMode);
   });
 
-  document.querySelectorAll('#view-community .filter-btn').forEach(b => {
+  document.querySelectorAll('#view-community [data-community-filter]').forEach(b => {
     b.classList.toggle('active', b.dataset.communityFilter === state.communityFilter);
   });
   document.querySelectorAll('#view-community .gen-filter-btn').forEach(b => {
@@ -819,6 +815,15 @@ function isShinyCard(captures, community) {
   return community ? !!captures[0]?.is_shiny : captures.some(c => c.is_shiny);
 }
 
+// Rangée « Variante » : ne garde que les captures de la variante choisie, de sorte
+// qu'un Pokémon attrapé seulement en shiny soit « non capturé » sous Normal. L'axe
+// ne porte que sur le shiny : une méga ou une forme non shiny compte comme normale.
+function filterByVariant(captures, variant) {
+  if (variant === 'shiny')  return captures.filter(c => c.is_shiny);
+  if (variant === 'normal') return captures.filter(c => !c.is_shiny);
+  return captures;
+}
+
 // Clés « id:slug », pour coller à ce que la grille affiche en mode Megadex.
 function getCapturedMegaForms(captures) {
   const forms = new Set();
@@ -1037,7 +1042,7 @@ function _renderProgressBars({ captures, mode, fillId, countId, panelId }) {
 
 function renderProgressBars() {
   _renderProgressBars({
-    captures: state.captures,
+    captures: filterByVariant(state.captures, state.activeVariant),
     mode:     state.pokédexMode,
     fillId:   'progress-fill',
     countId:  'progress-count',
@@ -1049,6 +1054,7 @@ function _renderPokeGrid({
   grid,
   searchQuery,
   activeFilter,
+  variant = 'all',
   visibleGenerations,
   getCaptureInfo,
   onProgressBars,
@@ -1113,19 +1119,21 @@ function _renderPokeGrid({
             }
           }
           
-          const captured = formCaptured;
-          const hasShiny = isShinyCard(formCaptures, community);
-          const date = formCaptures[0]?.captured_at;
+          // Le clic garde megaCaptures entier : seule la carte suit la variante.
+          const shown     = filterByVariant(formCaptures, variant);
+          const captured  = formCaptured && shown.length > 0;
+          const hasShiny  = captured && isShinyCard(shown, community);
+          const showShiny = hasShiny || variant === 'shiny';
+          const date = shown[0]?.captured_at;
 
           if (activeFilter === 'captured' && !captured) continue;
           if (activeFilter === 'uncaptured' && captured) continue;
-          if (activeFilter === 'shiny' && !hasShiny) continue;
           if (TIER_FILTER_KEYS.includes(activeFilter) && tier !== activeFilter) continue;
           // La recherche doit aussi matcher le nom de la forme ("méga-dracaufeu")
           const megaSearchTarget = `${name} ${megaForm.nom}`.toLowerCase();
           if (searchQuery && !megaSearchTarget.includes(searchQuery) && !String(id).includes(searchQuery)) continue;
 
-          const spriteUrl = hasShiny ? `${SPRITE_SHINY}${id}.png` : `${SPRITE_BASE}${id}.png`;
+          const spriteUrl = showShiny ? `${SPRITE_SHINY}${id}.png` : `${SPRITE_BASE}${id}.png`;
 
           const card = document.createElement('div');
           const cardClasses = `poke-card r-${tier}${captured ? ' captured' : ''}${hasShiny ? ' shiny-card' : ''}`;
@@ -1168,7 +1176,7 @@ function _renderPokeGrid({
 
           if (captured) {
             megaSpritePromises.push(
-              getMegaSpriteUrl(id, megaForm.slug, hasShiny).then(megaSpriteUrl => {
+              getMegaSpriteUrl(id, megaForm.slug, showShiny).then(megaSpriteUrl => {
                 if (megaSpriteUrl) {
                   spriteImg.src = megaSpriteUrl;
                 }
@@ -1179,17 +1187,19 @@ function _renderPokeGrid({
       } else {
         // Tout le monde passe un tableau ; la normalisation ne couvre que l'id absent.
         const capList  = Array.isArray(capInfo) ? capInfo : (capInfo ? [capInfo] : []);
-        const captured = capList.length > 0;
-        const hasShiny = isShinyCard(capList, community);
-        const date = capList[0]?.captured_at;
+        // Le clic garde capInfo entier : la modale reste la fiche de l'espèce.
+        const shown     = filterByVariant(capList, variant);
+        const captured  = shown.length > 0;
+        const hasShiny  = isShinyCard(shown, community);
+        const showShiny = hasShiny || variant === 'shiny';
+        const date = shown[0]?.captured_at;
 
         if (activeFilter === 'captured' && !captured) continue;
         if (activeFilter === 'uncaptured' && captured) continue;
-        if (activeFilter === 'shiny' && !hasShiny) continue;
         if (TIER_FILTER_KEYS.includes(activeFilter) && tier !== activeFilter) continue;
         if (searchQuery && !name.toLowerCase().includes(searchQuery) && !String(id).includes(searchQuery)) continue;
 
-        const spriteUrl = hasShiny ? `${SPRITE_SHINY}${id}.png` : `${SPRITE_BASE}${id}.png`;
+        const spriteUrl = showShiny ? `${SPRITE_SHINY}${id}.png` : `${SPRITE_BASE}${id}.png`;
 
         const card = document.createElement('div');
         const cardClasses = `poke-card r-${tier}${captured ? ' captured' : ''}${hasShiny ? ' shiny-card' : ''}`;
@@ -1300,6 +1310,7 @@ function _renderFormGrid({
   grid,
   searchQuery,
   activeFilter,
+  variant = 'all',
   getCapturesForForm,
   onProgressBars,
   onCardClick,
@@ -1327,13 +1338,15 @@ function _renderFormGrid({
 
     for (const form of species.forms) {
       const formCaptures = getCapturesForForm(species.id, form.slug);
-      const captured = formCaptures.length > 0;
-      const hasShiny = isShinyCard(formCaptures, community);
-      const date     = formCaptures[0]?.captured_at;
+      // Le clic garde formCaptures entier : seule la carte suit la variante.
+      const shown     = filterByVariant(formCaptures, variant);
+      const captured  = shown.length > 0;
+      const hasShiny  = isShinyCard(shown, community);
+      const showShiny = hasShiny || variant === 'shiny';
+      const date      = shown[0]?.captured_at;
 
       if (activeFilter === 'captured' && !captured) continue;
       if (activeFilter === 'uncaptured' && captured) continue;
-      if (activeFilter === 'shiny' && !hasShiny) continue;
       if (TIER_FILTER_KEYS.includes(activeFilter) && tier !== activeFilter) continue;
       // « morphéo » comme « blizzard » doivent tomber sur la bonne carte
       const searchTarget = `${speciesName} ${form.nom}`.toLowerCase();
@@ -1348,7 +1361,7 @@ function _renderFormGrid({
 
       card.innerHTML = `
         <div class="poke-sprite-wrap">
-          <img class="poke-sprite" src="${getFormSpriteUrl(form, hasShiny)}" alt="${escapeHtml(form.nom)}" loading="lazy">
+          <img class="poke-sprite" src="${getFormSpriteUrl(form, showShiny)}" alt="${escapeHtml(form.nom)}" loading="lazy">
         </div>
         <div class="poke-number">#${String(species.id).padStart(3, '0')}</div>
         <div class="poke-name">${captured ? escapeHtml(label) : '???'}</div>
@@ -1490,6 +1503,9 @@ function syncPokedexMode() {
   if (isUnown && (state.activeFilter !== 'all' || state.searchQuery)) {
     resetPokedexFilters();
   }
+  // La variante survit aux autres changements de mode, pas à celui-ci : elle
+  // filtrerait la progression du Zarbidex depuis une rangée invisible.
+  if (isUnown) setVariant('own', 'all');
 }
 
 function renderGrid() {
@@ -1510,6 +1526,7 @@ function renderGrid() {
       grid: document.getElementById('pokedex-grid'),
       searchQuery: state.searchQuery,
       activeFilter: state.activeFilter,
+      variant: state.activeVariant,
       getCapturesForForm: (id, slug) => getFormCaptures(state.captures, id, slug),
       onProgressBars: renderProgressBars,
       onCardClick: (id, slug, formCaptures) => openFormModal(id, slug, formCaptures),
@@ -1522,6 +1539,7 @@ function renderGrid() {
     grid: document.getElementById('pokedex-grid'),
     searchQuery: state.searchQuery,
     activeFilter: state.activeFilter,
+    variant: state.activeVariant,
     visibleGenerations: getVisibleGenerations(),
     getCaptureInfo: (id) => capMap[id],
     onProgressBars: renderProgressBars,
@@ -2012,7 +2030,7 @@ function communityVariantKey(r) {
 
 function renderCommunityProgressBars() {
   _renderProgressBars({
-    captures: state.communityCaptures,
+    captures: filterByVariant(state.communityCaptures, state.communityVariant),
     mode:     state.communityMode,
     fillId:   'community-progress-fill',
     countId:  'community-progress-count',
@@ -2053,6 +2071,7 @@ function syncCommunityMode() {
   if (isUnown && (state.communityFilter !== 'all' || state.communitySearch)) {
     resetCommunityFilters();
   }
+  if (isUnown) setVariant('community', 'all');
 }
 
 function renderCommunityGrid() {
@@ -2074,6 +2093,7 @@ function renderCommunityGrid() {
       grid: document.getElementById('community-grid'),
       searchQuery: state.communitySearch,
       activeFilter: state.communityFilter,
+      variant: state.communityVariant,
       getCapturesForForm: (id, slug) => getFormCaptures(state.communityCaptures, id, slug),
       onProgressBars: renderCommunityProgressBars,
       onCardClick: (id, slug, formCaptures) => openFormModal(id, slug, formCaptures, { community: true }),
@@ -2090,6 +2110,7 @@ function renderCommunityGrid() {
     grid: document.getElementById('community-grid'),
     searchQuery: state.communitySearch,
     activeFilter: state.communityFilter,
+    variant: state.communityVariant,
     visibleGenerations: visibleGens,
     // En Megadex, info est déjà la liste des mégas filtrée par _renderPokeGrid : la
     // repasser telle quelle est indispensable, le repli « sans colonne mega_form » de
@@ -3132,7 +3153,6 @@ function showLoggedOut(loading) {
   clearStoredToken();
   state.user = null;
   state.twitchToken = null;
-  applyGen4Visibility();
   document.getElementById('page-pokedex').style.display = 'none';
   document.getElementById('page-landing').style.display = 'flex';
   loading.classList.remove('show');
@@ -3171,9 +3191,6 @@ async function init() {
   state.twitchToken = token;
 
   state.user = user;
-  // Avant tout rendu et avant applyUrlState() : GENERATIONS et POKEDEX_TOTAL prennent
-  // ici leur valeur définitive pour la session.
-  applyGen4Visibility();
 
   document.getElementById('user-avatar').src       = user.profile_image_url;
   document.getElementById('user-name').textContent = user.display_name;
@@ -3229,8 +3246,6 @@ document.getElementById('btn-logout').addEventListener('click', () => {
   state.captures    = [];
   state.ownCaptures = [];
   state.adminViewingUser = null;
-  // Referme la Gen 4 : le prochain visiteur de cet onglet n'y a pas droit.
-  applyGen4Visibility();
 
   document.getElementById('page-pokedex').style.display = 'none';
   document.getElementById('page-landing').style.display = 'flex';
@@ -3243,13 +3258,42 @@ document.getElementById('btn-login').addEventListener('click', (e) => {
   window.location.href = getTwitchLoginUrl();
 });
 
-document.querySelectorAll('#view-pokedex .filter-btn').forEach(btn => {
+// [data-filter] et non .filter-btn : la rangée « Variante » porte la même classe,
+// et un clic sur une rareté ne doit pas éteindre son bouton actif.
+document.querySelectorAll('#view-pokedex [data-filter]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('#view-pokedex .filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#view-pokedex [data-filter]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.activeFilter = btn.dataset.filter;
     updateUrlState();
     renderGrid();
+  });
+});
+
+// ─── Rangée « Variante » ──────────────────────
+// Seul point d'écriture de la variante : l'état et les classes active ne peuvent
+// pas diverger, quel que soit le chemin (clic, deep-link, garde du Zarbidex).
+function setVariant(scope, value) {
+  const { key, attr, dataset } = VARIANT_SCOPES[scope];
+  state[key] = pickAllowed(value, VALID_VARIANTS, 'all');
+  document.querySelectorAll(`[data-${attr}]`).forEach(b => {
+    b.classList.toggle('active', b.dataset[dataset] === state[key]);
+  });
+}
+
+document.querySelectorAll('[data-variant]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    setVariant('own', btn.dataset.variant);
+    updateUrlState();
+    renderGrid();
+  });
+});
+
+document.querySelectorAll('[data-community-variant]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    setVariant('community', btn.dataset.communityVariant);
+    updateUrlState();
+    renderCommunityGrid();
   });
 });
 
@@ -3327,9 +3371,9 @@ document.querySelectorAll('#view-rank [data-first-gen]').forEach(btn => {
 });
 
 // ─── Filtres communauté ───────────────────────
-document.querySelectorAll('#view-community .filter-btn').forEach(btn => {
+document.querySelectorAll('#view-community [data-community-filter]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('#view-community .filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#view-community [data-community-filter]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.communityFilter = btn.dataset.communityFilter;
     updateUrlState();
@@ -3360,11 +3404,11 @@ function resetCommunityFilters() {
   state.communityGenFilter = 'all';
   state.communitySearch = '';
 
-  document.querySelectorAll('#view-community .filter-btn').forEach(b =>
+  document.querySelectorAll('#view-community [data-community-filter]').forEach(b =>
     b.classList.remove('active')
   );
   document
-    .querySelector('#view-community .filter-btn[data-community-filter="all"]')
+    .querySelector('#view-community [data-community-filter="all"]')
     .classList.add('active');
 
   document.querySelectorAll('#view-community .gen-filter-btn').forEach(b =>
@@ -3477,11 +3521,11 @@ function resetPokedexFilters() {
   state.activeGenFilter = 'all';
   state.searchQuery = '';
 
-  document.querySelectorAll('#view-pokedex .filter-btn').forEach(b =>
+  document.querySelectorAll('#view-pokedex [data-filter]').forEach(b =>
     b.classList.remove('active')
   );
   document
-    .querySelector('#view-pokedex .filter-btn[data-filter="all"]')
+    .querySelector('#view-pokedex [data-filter="all"]')
     .classList.add('active');
 
   document.querySelectorAll('#view-pokedex .gen-filter-btn').forEach(b =>
@@ -3495,8 +3539,10 @@ function resetPokedexFilters() {
 }
 
 // Bascule sur la vue Pokédex avec des filtres propres.
+// La variante, qui survit aux changements d'onglet, repart à zéro avec le dresseur.
 function showPokedexView({ showBackButton }) {
   resetPokedexFilters();
+  setVariant('own', 'all');
   switchToPage('pokedex');
   document.getElementById('back-to-me-btn').style.display = showBackButton ? '' : 'none';
   updateUrlState();
