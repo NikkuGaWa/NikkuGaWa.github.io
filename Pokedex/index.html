@@ -37,7 +37,7 @@
       Se connecter avec Twitch
     </a>
     <div class="landing-stats">
-      <div class="stat-item"><span class="stat-num">386</span><div class="stat-label">Pokémon à capturer</div></div>
+      <div class="stat-item"><span class="stat-num">493</span><div class="stat-label">Pokémon à capturer</div></div>
       <div class="stat-item"><span class="stat-num" id="stat-trainers">—</span><div class="stat-label">Dresseurs actifs</div></div>
       <div class="stat-item"><span class="stat-num" id="stat-captures">—</span><div class="stat-label">Captures totales</div></div>
     </div>
@@ -82,7 +82,7 @@
       <div class="progress-bar-wrap">
         <div class="progress-inner">
           <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
-          <span class="progress-count" id="progress-count">0 / 386</span>
+          <span class="progress-count" id="progress-count">0 / 493</span>
           <button class="progress-toggle" id="progress-toggle" type="button" aria-expanded="false" title="Afficher le détail par génération"><span>Détails</span><i></i></button>
         </div>
         <div class="generation-progress-panel" id="generation-progress-panel" style="display:none"></div>
@@ -94,7 +94,7 @@
           <button class="gen-filter-btn" data-gen-filter="1">Gen 1</button>
           <button class="gen-filter-btn" data-gen-filter="2">Gen 2</button>
           <button class="gen-filter-btn" data-gen-filter="3">Gen 3</button>
-          <button class="gen-filter-btn" data-gen-filter="4" data-gen4 hidden>Gen 4</button>
+          <button class="gen-filter-btn" data-gen-filter="4">Gen 4</button>
         </div>
       </div>
       <div class="filters">
@@ -108,8 +108,13 @@
           <button class="filter-btn f-epique" data-filter="epique">★★★★ Épique</button>
           <button class="filter-btn f-fabuleux" data-filter="fabuleux">★★★★★ Fabuleux</button>
           <button class="filter-btn f-legendaire" data-filter="legendaire">★★★★★★ Légendaire</button>
-          <button class="filter-btn f-shiny" data-filter="shiny">✨ Shiny</button>
           <input class="filter-search" id="filter-search" type="text" placeholder="Rechercher...">
+        </div>
+        <!-- Se combine avec la rangée du dessus : « capturé » s'entend dans la variante choisie. -->
+        <div class="filters-inner filters-variant">
+          <button class="filter-btn active" data-variant="all">Toutes</button>
+          <button class="filter-btn" data-variant="normal">Normal</button>
+          <button class="filter-btn f-shiny" data-variant="shiny">✨ Shiny</button>
         </div>
       </div>
       <div class="pokedex-grid" id="pokedex-grid"></div>
@@ -134,7 +139,7 @@
       <div class="progress-bar-wrap">
         <div class="progress-inner">
           <div class="progress-track"><div class="progress-fill" id="community-progress-fill" style="width:0%"></div></div>
-          <span class="progress-count" id="community-progress-count">0 / 386</span>
+          <span class="progress-count" id="community-progress-count">0 / 493</span>
           <button class="progress-toggle" id="community-progress-toggle" type="button" aria-expanded="false" title="Afficher le détail par génération"><span>Détails</span><i></i></button>
         </div>
         <div class="generation-progress-panel" id="community-generation-progress-panel" style="display:none"></div>
@@ -147,7 +152,7 @@
           <button class="gen-filter-btn" data-community-gen="1">Gen 1</button>
           <button class="gen-filter-btn" data-community-gen="2">Gen 2</button>
           <button class="gen-filter-btn" data-community-gen="3">Gen 3</button>
-          <button class="gen-filter-btn" data-community-gen="4" data-gen4 hidden>Gen 4</button>
+          <button class="gen-filter-btn" data-community-gen="4">Gen 4</button>
         </div>
       </div>
 
@@ -162,8 +167,12 @@
           <button class="filter-btn f-epique" data-community-filter="epique">★★★★ Épique</button>
           <button class="filter-btn f-fabuleux" data-community-filter="fabuleux">★★★★★ Fabuleux</button>
           <button class="filter-btn f-legendaire" data-community-filter="legendaire">★★★★★★ Légendaire</button>
-          <button class="filter-btn f-shiny" data-community-filter="shiny">✨ Shiny</button>
           <input class="filter-search" id="community-filter-search" type="text" placeholder="Rechercher...">
+        </div>
+        <div class="filters-inner filters-variant">
+          <button class="filter-btn active" data-community-variant="all">Toutes</button>
+          <button class="filter-btn" data-community-variant="normal">Normal</button>
+          <button class="filter-btn f-shiny" data-community-variant="shiny">✨ Shiny</button>
         </div>
       </div>
 
@@ -212,7 +221,7 @@
                 <button class="sdash-gen-tab" data-rarity-gen="1">Gen 1</button>
                 <button class="sdash-gen-tab" data-rarity-gen="2">Gen 2</button>
                 <button class="sdash-gen-tab" data-rarity-gen="3">Gen 3</button>
-                <button class="sdash-gen-tab" data-rarity-gen="4" data-gen4 hidden>Gen 4</button>
+                <button class="sdash-gen-tab" data-rarity-gen="4">Gen 4</button>
               </div>
             </div>
             <div class="sdash-rarity-list" id="sdash-rarity-list"></div>
@@ -240,7 +249,7 @@
                   <button class="sdash-gen-tab" data-throw-gen="1">Gen 1</button>
                   <button class="sdash-gen-tab" data-throw-gen="2">Gen 2</button>
                   <button class="sdash-gen-tab" data-throw-gen="3">Gen 3</button>
-                  <button class="sdash-gen-tab" data-throw-gen="4" data-gen4 hidden>Gen 4</button>
+                  <button class="sdash-gen-tab" data-throw-gen="4">Gen 4</button>
                 </div>
               </div>
               <div class="sdash-filter-group">
@@ -282,7 +291,7 @@
               <button class="sdash-gen-tab" data-spawn-gen="1">Gen 1</button>
               <button class="sdash-gen-tab" data-spawn-gen="2">Gen 2</button>
               <button class="sdash-gen-tab" data-spawn-gen="3">Gen 3</button>
-              <button class="sdash-gen-tab" data-spawn-gen="4" data-gen4 hidden>Gen 4</button>
+              <button class="sdash-gen-tab" data-spawn-gen="4">Gen 4</button>
             </div>
           </div>
           <div class="sdash-filter-group">
@@ -334,7 +343,7 @@
               <button class="sdash-gen-tab" data-diff-gen="1">Gen 1</button>
               <button class="sdash-gen-tab" data-diff-gen="2">Gen 2</button>
               <button class="sdash-gen-tab" data-diff-gen="3">Gen 3</button>
-              <button class="sdash-gen-tab" data-diff-gen="4" data-gen4 hidden>Gen 4</button>
+              <button class="sdash-gen-tab" data-diff-gen="4">Gen 4</button>
             </div>
           </div>
           <div class="sdash-filter-group">
@@ -413,7 +422,7 @@
               <button class="rank-tab-btn" data-stats-gen="1">Gen 1</button>
               <button class="rank-tab-btn" data-stats-gen="2">Gen 2</button>
               <button class="rank-tab-btn" data-stats-gen="3">Gen 3</button>
-              <button class="rank-tab-btn" data-stats-gen="4" data-gen4 hidden>Gen 4</button>
+              <button class="rank-tab-btn" data-stats-gen="4">Gen 4</button>
             </div>
           </div>
           <div class="ranking-list" id="rank-completion"></div>
@@ -426,7 +435,7 @@
               <button class="rank-tab-btn" data-first-gen="1">Gen 1</button>
               <button class="rank-tab-btn" data-first-gen="2">Gen 2</button>
               <button class="rank-tab-btn" data-first-gen="3">Gen 3</button>
-              <button class="rank-tab-btn" data-first-gen="4" data-gen4 hidden>Gen 4</button>
+              <button class="rank-tab-btn" data-first-gen="4">Gen 4</button>
             </div>
           </div>
           <div class="ranking-list" id="sdash-first-capturers"></div>
