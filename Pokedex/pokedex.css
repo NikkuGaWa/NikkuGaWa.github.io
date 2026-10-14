@@ -462,6 +462,7 @@ body::before {
   padding-bottom: 2px;
 }
 .filters-inner::-webkit-scrollbar { display: none; }
+.filters-variant { margin-top: 8px; }
 
 .filter-btn {
   padding: 6px 14px;
@@ -1531,9 +1532,6 @@ hyphens: auto;
 /* [hidden] seul ne suffit pas : les blocs de filtres portent un display:flex de classe. */
 [data-stats-filters][hidden] { display: none; }
 
-/* Même précaution pour les boutons Gen 4, semés dans huit groupes aux classes différentes. */
-[data-gen4][hidden] { display: none !important; }
-
 /* ── Two-column row ──────────────────────────── */
 .sdash-row-2 {
   display: grid;
@@ -1721,7 +1719,7 @@ hyphens: auto;
   font-family: 'Press Start 2P', monospace;
   font-size: 7px;
   color: var(--muted);
-  /* min-width et non width : le classement descend jusqu'à #386, qui déborderait. */
+  /* min-width et non width : le classement descend jusqu'à #493, qui déborderait. */
   min-width: 22px;
   white-space: nowrap;
   flex-shrink: 0;
