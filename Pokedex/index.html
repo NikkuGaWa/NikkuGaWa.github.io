@@ -53,6 +53,7 @@
           <button class="nav-btn active" data-page="pokedex">Pokédex</button>
           <button class="nav-btn" data-page="communauté">Communauté</button>
           <button class="nav-btn" data-page="stats">Statistiques</button>
+          <button class="nav-btn" data-page="calculateur">Calculateur</button>
           <button class="nav-btn" data-page="classements">Classements</button>
 
           <button class="nav-btn" data-page="dresseurs">Dresseurs</button>
@@ -443,6 +444,48 @@
       </div>
     </div>
 
+    <!-- Vue Calculateur — probabilités de spawn, cf. calculator.js -->
+    <div id="view-calc" style="display:none">
+      <div class="stats-page">
+        <div class="ranking-section">
+          <h2 class="ranking-title">Calculateur de spawn</h2>
+          <p class="calc-intro">Chance qu’un Pokémon apparaisse à un spawn naturel, selon sa variante.</p>
+
+          <div class="calc-controls">
+            <div class="calc-field">
+              <label class="calc-label" for="calc-search">Pokémon</label>
+              <input class="admin-search calc-search" id="calc-search" type="text" list="calc-pokemon-list"
+                     placeholder="Nom ou numéro (ex. Dracaufeu, 6)" autocomplete="off">
+              <datalist id="calc-pokemon-list"></datalist>
+              <div class="calc-search-error" id="calc-search-error" hidden>Aucun Pokémon ne correspond.</div>
+            </div>
+            <div class="calc-field">
+              <span class="calc-label">Couleur</span>
+              <div class="sdash-gen-tabs calc-tabs" role="group" aria-label="Shiny ou normal">
+                <button class="sdash-gen-tab active" type="button" data-calc-shiny="0">Normal</button>
+                <button class="sdash-gen-tab" type="button" data-calc-shiny="1">✨ Shiny</button>
+              </div>
+            </div>
+            <div class="calc-field" id="calc-variant-wrap" hidden>
+              <label class="calc-label" for="calc-variant">Variante</label>
+              <select class="calc-select" id="calc-variant"></select>
+            </div>
+          </div>
+
+          <div class="calc-card">
+            <div class="calc-identity">
+              <img class="calc-sprite" id="calc-sprite" src="" alt="">
+              <div class="calc-name" id="calc-name"></div>
+              <div class="calc-number" id="calc-number"></div>
+              <span class="modal-badge" id="calc-tier"></span>
+            </div>
+            <div class="calc-results" id="calc-results"></div>
+          </div>
+          <ul class="calc-notes" id="calc-notes"></ul>
+        </div>
+      </div>
+    </div>
+
     <!-- Vue Dresseurs -->
     <div id="view-admin" style="display:none">
       <div class="admin-page">
@@ -475,5 +518,6 @@
   </div>
 
   <script src="pokedex.js"></script>
+  <script src="calculator.js"></script>
 </body>
 </html>

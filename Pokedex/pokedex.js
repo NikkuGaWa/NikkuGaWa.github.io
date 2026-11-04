@@ -394,7 +394,7 @@ let _modalLastFocus = null;
 /* ════════════════════════════════════════════════
    DEEP-LINKING (URL HASH)
 ════════════════════════════════════════════════ */
-const VALID_VIEWS   = ['pokedex', 'communauté', 'stats', 'classements', 'dresseurs'];
+const VALID_VIEWS   = ['pokedex', 'communauté', 'stats', 'calculateur', 'classements', 'dresseurs'];
 // arceus n'y figure pas : un palier d'un seul Pokémon n'a pas de bouton de filtre,
 // et un deep-link ?filter=arceus viderait la grille sans contrôle visible pour l'expliquer.
 const VALID_FILTERS = ['all', 'captured', 'uncaptured', 'commun', 'peuCommun', 'rare', 'epique', 'fabuleux', 'legendaire'];
@@ -535,11 +535,13 @@ function switchToPage(page) {
   document.getElementById('view-stats').style.display     = page === 'stats'       ? 'block' : 'none';
   document.getElementById('view-rank').style.display      = page === 'classements' ? 'block' : 'none';
   document.getElementById('view-admin').style.display     = page === 'dresseurs'   ? 'block' : 'none';
+  document.getElementById('view-calc').style.display      = page === 'calculateur' ? 'block' : 'none';
 
   if (page === 'classements') loadStats(true);
   if (page === 'dresseurs')   loadAdminUsers(true);
   if (page === 'stats')       loadStatsDashboard(true);
   if (page === 'communauté')  loadCommunityPokedex();
+  if (page === 'calculateur') initCalculator();   // calculator.js
 }
 
 /* ════════════════════════════════════════════════
@@ -2573,7 +2575,7 @@ async function ensureThrowRows(forceRefresh = false) {
     `${CONFIG.supabase.url}/rest/v1/user_pokemon_throw_counts`
       + `?select=user_login,pokemon_id,is_shiny,mega_form,form`
       + `,throws_pokeball,throws_superball,throws_hyperball`
-      + `,throws_to_capture,captured_with`
+      + `,throws_to_capture,captured_with,captured_with_nikku`
       + `&order=user_login.asc,pokemon_id.asc,is_shiny.asc`
       + `,mega_form.asc.nullsfirst,form.asc.nullsfirst`,
     {
@@ -2603,12 +2605,18 @@ const BALL_EMOJI = {
 };
 
 // Icône seule : le libellé complet reste dans le title et l'aria-label.
-function renderBallTag(ball) {
+// `nikku` : la ball a été tirée par une Nikku Ball (captured_with_nikku) ; on
+// affiche alors le logo « N » de sa couleur au lieu de l'emoji.
+function renderBallTag(ball, nikku = false) {
   const label = BALL_LABELS[ball];
   if (!label) return '';
 
-  return `<span class="poke-ball-tag" title="Capturé à la ${escapeHtml(label)}"`
-    + ` aria-label="Capturé à la ${escapeHtml(label)}">${BALL_EMOJI[ball] || ''}</span>`;
+  const text = nikku ? `Capturé à la Nikku Ball (${label})` : `Capturé à la ${label}`;
+  const icon = nikku
+    ? `<img class="poke-ball-tag-img" src="assets/images/nikku-${ball}.png" alt="">`
+    : (BALL_EMOJI[ball] || '');
+  return `<span class="poke-ball-tag" title="${escapeHtml(text)}"`
+    + ` aria-label="${escapeHtml(text)}">${icon}</span>`;
 }
 
 // Le nom de la méga ou de la forme quand il y en a une, celui de l'espèce sinon.
@@ -2645,7 +2653,7 @@ function renderVariantCards(captures, { community = false, login = getDisplayedL
       : '';
 
     const meta = info
-      ? [renderBallTag(info.ball),
+      ? [renderBallTag(info.ball, info.nikku),
          info.throws ? `${info.throws} lancer${info.throws > 1 ? 's' : ''}` : '']
           .filter(Boolean).join(' · ')
       : `<span class="modal-variant-unknown">lancers non enregistrés</span>`;
@@ -2688,7 +2696,7 @@ function renderCaptureInfo(captures, { community = false, login = getDisplayedLo
   const first     = ordered[0];
   const firstInfo = getCaptureThrowInfo(first, community ? first.user_login : login);
   const line      = [`Capturé le ${formatDate(first.captured_at)}`];
-  if (firstInfo?.ball) line.push(renderBallTag(firstInfo.ball));
+  if (firstInfo?.ball) line.push(renderBallTag(firstInfo.ball, firstInfo.nikku));
 
   if (variants) variants.innerHTML = renderVariantCards(ordered, { community, login });
 
@@ -2754,8 +2762,9 @@ function getCaptureThrowInfo(capture, login = getDisplayedLogin()) {
   if (!row) return null;
 
   const ball   = row.captured_with || null;
+  const nikku  = row.captured_with_nikku === true;
   const throws = Number(row.throws_to_capture) > 0 ? Number(row.throws_to_capture) : null;
-  return (ball || throws) ? { ball, throws } : null;
+  return (ball || throws) ? { ball, nikku, throws } : null;
 }
 
 async function loadThrowStats(forceRefresh = false) {
