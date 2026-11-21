@@ -103,12 +103,13 @@
           <button class="filter-btn active" data-filter="all">Tous</button>
           <button class="filter-btn" data-filter="captured">Capturés</button>
           <button class="filter-btn" data-filter="uncaptured">Non capturés</button>
-          <button class="filter-btn f-commun" data-filter="commun">★ Commun</button>
-          <button class="filter-btn f-peucommun" data-filter="peuCommun">★★ Peu commun</button>
-          <button class="filter-btn f-rare" data-filter="rare">★★★ Rare</button>
-          <button class="filter-btn f-epique" data-filter="epique">★★★★ Épique</button>
-          <button class="filter-btn f-fabuleux" data-filter="fabuleux">★★★★★ Fabuleux</button>
-          <button class="filter-btn f-legendaire" data-filter="legendaire">★★★★★★ Légendaire</button>
+          <span class="filter-sep" aria-hidden="true"></span>
+          <button class="filter-btn f-commun" data-tier="commun">★ Commun</button>
+          <button class="filter-btn f-peucommun" data-tier="peuCommun">★★ Peu commun</button>
+          <button class="filter-btn f-rare" data-tier="rare">★★★ Rare</button>
+          <button class="filter-btn f-epique" data-tier="epique">★★★★ Épique</button>
+          <button class="filter-btn f-fabuleux" data-tier="fabuleux">★★★★★ Fabuleux</button>
+          <button class="filter-btn f-legendaire" data-tier="legendaire">★★★★★★ Légendaire</button>
           <input class="filter-search" id="filter-search" type="text" placeholder="Rechercher...">
         </div>
         <!-- Se combine avec la rangée du dessus : « capturé » s'entend dans la variante choisie. -->
@@ -116,6 +117,12 @@
           <button class="filter-btn active" data-variant="all">Toutes</button>
           <button class="filter-btn" data-variant="normal">Normal</button>
           <button class="filter-btn f-shiny" data-variant="shiny">✨ Shiny</button>
+          <!-- Second axe : écarte les mégas, pour voir quelles versions normales manquent. -->
+          <span class="filter-sep" aria-hidden="true" data-nomega-sep></span>
+          <button class="filter-btn f-nomega" type="button" data-nomega aria-pressed="false"
+                  title="Ne compter que les captures non méga">
+            <img src="assets/images/key_stone.png" alt="" class="f-nomega-icon"> Sans méga
+          </button>
         </div>
       </div>
       <div class="pokedex-grid" id="pokedex-grid"></div>
@@ -162,18 +169,24 @@
           <button class="filter-btn active" data-community-filter="all">Tous</button>
           <button class="filter-btn" data-community-filter="captured">Capturés</button>
           <button class="filter-btn" data-community-filter="uncaptured">Non capturés</button>
-          <button class="filter-btn f-commun" data-community-filter="commun">★ Commun</button>
-          <button class="filter-btn f-peucommun" data-community-filter="peuCommun">★★ Peu commun</button>
-          <button class="filter-btn f-rare" data-community-filter="rare">★★★ Rare</button>
-          <button class="filter-btn f-epique" data-community-filter="epique">★★★★ Épique</button>
-          <button class="filter-btn f-fabuleux" data-community-filter="fabuleux">★★★★★ Fabuleux</button>
-          <button class="filter-btn f-legendaire" data-community-filter="legendaire">★★★★★★ Légendaire</button>
+          <span class="filter-sep" aria-hidden="true"></span>
+          <button class="filter-btn f-commun" data-community-tier="commun">★ Commun</button>
+          <button class="filter-btn f-peucommun" data-community-tier="peuCommun">★★ Peu commun</button>
+          <button class="filter-btn f-rare" data-community-tier="rare">★★★ Rare</button>
+          <button class="filter-btn f-epique" data-community-tier="epique">★★★★ Épique</button>
+          <button class="filter-btn f-fabuleux" data-community-tier="fabuleux">★★★★★ Fabuleux</button>
+          <button class="filter-btn f-legendaire" data-community-tier="legendaire">★★★★★★ Légendaire</button>
           <input class="filter-search" id="community-filter-search" type="text" placeholder="Rechercher...">
         </div>
         <div class="filters-inner filters-variant">
           <button class="filter-btn active" data-community-variant="all">Toutes</button>
           <button class="filter-btn" data-community-variant="normal">Normal</button>
           <button class="filter-btn f-shiny" data-community-variant="shiny">✨ Shiny</button>
+          <span class="filter-sep" aria-hidden="true" data-community-nomega-sep></span>
+          <button class="filter-btn f-nomega" type="button" data-community-nomega aria-pressed="false"
+                  title="Ne compter que les captures non méga">
+            <img src="assets/images/key_stone.png" alt="" class="f-nomega-icon"> Sans méga
+          </button>
         </div>
       </div>
 
@@ -228,15 +241,28 @@
             <div class="sdash-rarity-list" id="sdash-rarity-list"></div>
           </div>
 
-          <!-- Le seul panneau personnel : les balls que le dresseur connecté a lancées.
-               Une ligne par variante visée, comme la clé de captures. La Master Ball n'a pas
-               de bouton et ne compte nulle part : elle capture à coup sûr. -->
+          <!-- Le seul panneau personnel : les balls lancées par le dresseur connecté, ou par
+               celui choisi dans la recherche. Une ligne par variante visée, comme la clé de
+               captures. La Master Ball n'a pas de bouton et ne compte nulle part : elle
+               capture à coup sûr. -->
           <div class="sdash-panel">
             <div class="sdash-panel-header">
               <div class="sdash-panel-head-row">
-                <div class="sdash-panel-title">Lancers de balls</div>
+                <div class="sdash-panel-title" id="sdash-throws-title">Lancers de balls</div>
                 <button class="sdash-filter-cog" type="button" data-filter-toggle="throws"
                         aria-expanded="false" aria-label="Filtres" title="Filtres">⚙&#xFE0E;</button>
+              </div>
+              <!-- Hors de l'écrou : ce n'est pas un filtre, c'est le dresseur affiché.
+                   Liste maison et non <datalist> : avatars, pseudo affiché, ordre maîtrisé. -->
+              <div class="throw-trainer-picker">
+                <input class="throw-trainer-search" id="throw-trainer-search" type="text"
+                       role="combobox" aria-autocomplete="list" aria-expanded="false"
+                       aria-controls="throw-trainer-list" aria-label="Chercher un dresseur"
+                       autocomplete="off" spellcheck="false" placeholder="Chercher un dresseur…">
+                <button class="throw-trainer-me" id="throw-trainer-me" type="button" hidden
+                        title="Revenir à mes lancers">↺ Moi</button>
+                <ul class="throw-trainer-list" id="throw-trainer-list" role="listbox"
+                    aria-label="Dresseurs" hidden></ul>
               </div>
             </div>
 
@@ -272,6 +298,16 @@
                   <button class="sdash-gen-tab b-pokeball" data-throw-ball="pokeball">Poké Ball</button>
                   <button class="sdash-gen-tab b-superball" data-throw-ball="superball">Super Ball</button>
                   <button class="sdash-gen-tab b-hyperball" data-throw-ball="hyperball">Hyper Ball</button>
+                  <button class="sdash-gen-tab b-nikkuball" data-throw-ball="nikkuball">Nikku Ball</button>
+                </div>
+              </div>
+              <!-- Attrapé = captured_with posé. Les échecs restent : ce sont de vrais lancers. -->
+              <div class="sdash-filter-group">
+                <span class="sdash-filter-label">Résultat</span>
+                <div class="sdash-gen-tabs">
+                  <button class="sdash-gen-tab active" data-throw-result="all">Tous</button>
+                  <button class="sdash-gen-tab" data-throw-result="caught">Attrapés</button>
+                  <button class="sdash-gen-tab" data-throw-result="missed">Pas attrapés</button>
                 </div>
               </div>
             </div>
@@ -359,8 +395,9 @@
               <button class="sdash-gen-tab t-legendaire" data-diff-tier="legendaire">Légendaire</button>
             </div>
           </div>
-          <!-- La ball filtrée est celle qui a conclu la capture. Master Ball absente et même
-               exclue du calcul : elle tirerait toutes les moyennes vers 1. -->
+          <!-- Le filtre Ball change le numérateur (les lancers de cette ball), jamais le
+               dénominateur. Master Ball lancée directement absente et exclue du calcul :
+               elle tirerait toutes les moyennes vers 1. Une Nikku qui a tiré la Master compte. -->
           <div class="sdash-filter-group">
             <span class="sdash-filter-label">Ball</span>
             <div class="sdash-gen-tabs">
@@ -368,6 +405,7 @@
               <button class="sdash-gen-tab b-pokeball" data-diff-ball="pokeball">Poké Ball</button>
               <button class="sdash-gen-tab b-superball" data-diff-ball="superball">Super Ball</button>
               <button class="sdash-gen-tab b-hyperball" data-diff-ball="hyperball">Hyper Ball</button>
+              <button class="sdash-gen-tab b-nikkuball" data-diff-ball="nikkuball">Nikku Ball</button>
             </div>
           </div>
         </div>

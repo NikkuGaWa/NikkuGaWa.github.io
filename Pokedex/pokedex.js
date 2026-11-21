@@ -353,8 +353,10 @@ let state = {
   captures:     [],
   ownCaptures:  [],
   names:        {},
-  activeFilter: 'all',
+  activeFilter: 'all',    // statut seul : 'all' | 'captured' | 'uncaptured'
+  activeTier:   'all',    // rareté, combinable avec le statut
   activeVariant: 'all',   // 'all' | 'normal' | 'shiny' — cf. filterByVariant()
+  activeNoMega: false,    // « Sans méga », second axe de la rangée Variante
   activeGenFilter: 'all',
   activeStatsGen: 'all',
   searchQuery:  '',
@@ -365,7 +367,9 @@ let state = {
   communityCaptures: [],
   communityBySpecies: {},        // { id: [variantes] } — grilles et modale
   communityFilter: 'all',
+  communityTier: 'all',
   communityVariant: 'all',
+  communityNoMega: false,
   communityGenFilter: 'all',
   communitySearch: '',
   communityMode: 'normal', // 'normal' | 'mega' | 'form' | 'unown'
@@ -380,13 +384,16 @@ let state = {
   // Filtres du panneau personnel « mes lancers de balls »
   throwGen: 'all',
   throwTier: 'all',
-  throwBall: 'all',   // 'all' | 'pokeball' | 'superball' | 'hyperball'
+  throwBall: 'all',   // 'all' | 'pokeball' | 'superball' | 'hyperball' | 'nikkuball'
+  throwResult: 'all', // 'all' | 'caught' | 'missed'
   // Filtres de la ligne « difficulté », partagés par ses deux panneaux
   diffGen: 'all',
   diffTier: 'all',
   diffBall: 'all',
   // login → URL d'avatar, rempli une fois (cf. loadThrowerAvatars)
   throwAvatars: {},
+  // Dresseur affiché par « Lancers de balls » ; vide = le compte connecté.
+  throwTrainer: '',
 };
 
 let _modalLastFocus = null;
@@ -395,17 +402,31 @@ let _modalLastFocus = null;
    DEEP-LINKING (URL HASH)
 ════════════════════════════════════════════════ */
 const VALID_VIEWS   = ['pokedex', 'communauté', 'stats', 'calculateur', 'classements', 'dresseurs'];
+/* Première rangée, deux axes combinables : le statut et la rareté. */
+const VALID_FILTERS = ['all', 'captured', 'uncaptured'];
 // arceus n'y figure pas : un palier d'un seul Pokémon n'a pas de bouton de filtre,
-// et un deep-link ?filter=arceus viderait la grille sans contrôle visible pour l'expliquer.
-const VALID_FILTERS = ['all', 'captured', 'uncaptured', 'commun', 'peuCommun', 'rare', 'epique', 'fabuleux', 'legendaire'];
-/* Les filtres qui trient par rareté, par opposition à all/captured/uncaptured. */
+// et un deep-link ?tier=arceus viderait la grille sans contrôle visible pour l'expliquer.
 const TIER_FILTER_KEYS = ['commun', 'peuCommun', 'rare', 'epique', 'fabuleux', 'legendaire'];
+const VALID_TIERS = ['all', ...TIER_FILTER_KEYS];
 /* Seconde rangée, indépendante de la première. */
 const VALID_VARIANTS = ['all', 'normal', 'shiny'];
-// Clé d'état et attribut de bouton de chaque rangée, lus par setVariant().
+// Clés d'état et attributs de bouton de chaque vue, lus par setVariant(),
+// setNoMega(), setStatusFilter() et setTierFilter() : seuls points d'écriture.
 const VARIANT_SCOPES = {
   own:       { key: 'activeVariant',    attr: 'variant',           dataset: 'variant' },
   community: { key: 'communityVariant', attr: 'community-variant', dataset: 'communityVariant' },
+};
+const NO_MEGA_SCOPES = {
+  own:       { key: 'activeNoMega',    attr: 'nomega' },
+  community: { key: 'communityNoMega', attr: 'community-nomega' },
+};
+const FILTER_SCOPES = {
+  own:       { key: 'activeFilter',    attr: 'filter',           dataset: 'filter' },
+  community: { key: 'communityFilter', attr: 'community-filter', dataset: 'communityFilter' },
+};
+const TIER_SCOPES = {
+  own:       { key: 'activeTier',    attr: 'tier',           dataset: 'tier' },
+  community: { key: 'communityTier', attr: 'community-tier', dataset: 'communityTier' },
 };
 const VALID_MODES   = ['normal', 'mega', 'form', 'unown'];
 
@@ -419,13 +440,20 @@ function pickGen(value) {
   return GENERATIONS.some(g => String(g.id) === String(value)) ? String(value) : 'all';
 }
 
-// Un ancien lien ?filter=shiny voulait dire « possédé en shiny » : c'est désormais
-// Capturés + variante Shiny, deux rangées distinctes.
-function pickFilterAndVariant(rawFilter, rawVariant) {
-  if (rawFilter === 'shiny') return { filter: 'captured', variant: 'shiny' };
+// Anciens liens : ?filter=shiny voulait dire « possédé en shiny », c'est désormais
+// Capturés + variante Shiny ; ?filter=rare portait la rareté dans le statut, c'est
+// désormais Tous + Rare. Un tier explicite l'emporte sur celui tiré de filter.
+function pickFilters(rawFilter, rawTier, rawVariant, rawNoMega) {
+  const noMega = rawNoMega === '1';
+  if (rawFilter === 'shiny') {
+    return { filter: 'captured', tier: pickAllowed(rawTier, VALID_TIERS, 'all'), variant: 'shiny', noMega };
+  }
+  const legacyTier = TIER_FILTER_KEYS.includes(rawFilter) ? rawFilter : 'all';
   return {
     filter:  pickAllowed(rawFilter, VALID_FILTERS, 'all'),
+    tier:    pickAllowed(rawTier, VALID_TIERS, legacyTier),
     variant: pickAllowed(rawVariant, VALID_VARIANTS, 'all'),
+    noMega,
   };
 }
 
@@ -446,17 +474,21 @@ function getUrlState() {
   if (!VALID_VIEWS.includes(view)) return {};
 
   const params = new URLSearchParams(rawQuery || '');
-  const own       = pickFilterAndVariant(params.get('filter'), params.get('variant'));
-  const community = pickFilterAndVariant(params.get('cf'), params.get('cv'));
+  const own       = pickFilters(params.get('filter'), params.get('tier'), params.get('variant'), params.get('nomega'));
+  const community = pickFilters(params.get('cf'), params.get('ct'), params.get('cv'), params.get('cnm'));
   return {
     view,
     filter:           own.filter,
+    tier:             own.tier,
     variant:          own.variant,
+    noMega:           own.noMega,
     gen:              pickGen(params.get('gen')),
     mode:             pickAllowed(params.get('mode'), VALID_MODES, 'normal'),
     search:           params.get('search') || '',
     communityFilter:  community.filter,
+    communityTier:    community.tier,
     communityVariant: community.variant,
+    communityNoMega:  community.noMega,
     communityGen:     pickGen(params.get('cg')),
     communityMode:   pickAllowed(params.get('cm'), VALID_MODES, 'normal'),
     communitySearch: params.get('cs') || '',
@@ -468,12 +500,16 @@ function updateUrlState() {
   const params = new URLSearchParams();
 
   if (state.activeFilter !== 'all')       params.set('filter', state.activeFilter);
+  if (state.activeTier !== 'all')         params.set('tier', state.activeTier);
   if (state.activeVariant !== 'all')      params.set('variant', state.activeVariant);
+  if (state.activeNoMega)                 params.set('nomega', '1');
   if (state.activeGenFilter !== 'all')    params.set('gen', state.activeGenFilter);
   if (state.pokédexMode !== 'normal')     params.set('mode', state.pokédexMode);
   if (state.searchQuery)                  params.set('search', state.searchQuery);
   if (state.communityFilter !== 'all')    params.set('cf', state.communityFilter);
+  if (state.communityTier !== 'all')      params.set('ct', state.communityTier);
   if (state.communityVariant !== 'all')   params.set('cv', state.communityVariant);
+  if (state.communityNoMega)              params.set('cnm', '1');
   if (state.communityGenFilter !== 'all') params.set('cg', state.communityGenFilter);
   if (state.communityMode !== 'normal')   params.set('cm', state.communityMode);
   if (state.communitySearch)              params.set('cs', state.communitySearch);
@@ -486,20 +522,21 @@ function updateUrlState() {
 function applyUrlState(urlState = getUrlState()) {
   if (!urlState.view) return;
 
-  state.activeFilter       = urlState.filter;
   state.activeGenFilter    = urlState.gen;
   state.pokédexMode        = urlState.mode;
   state.searchQuery        = urlState.search.trim().toLowerCase();
-  state.communityFilter    = urlState.communityFilter;
   state.communityGenFilter = urlState.communityGen;
   state.communityMode      = urlState.communityMode;
   state.communitySearch    = urlState.communitySearch.trim().toLowerCase();
+  setStatusFilter('own', urlState.filter);
+  setTierFilter('own', urlState.tier);
   setVariant('own', urlState.variant);
+  setNoMega('own', urlState.noMega);
+  setStatusFilter('community', urlState.communityFilter);
+  setTierFilter('community', urlState.communityTier);
   setVariant('community', urlState.communityVariant);
+  setNoMega('community', urlState.communityNoMega);
 
-  document.querySelectorAll('#view-pokedex [data-filter]').forEach(b => {
-    b.classList.toggle('active', b.dataset.filter === state.activeFilter);
-  });
   document.querySelectorAll('#view-pokedex .gen-filter-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.genFilter === state.activeGenFilter);
   });
@@ -507,9 +544,6 @@ function applyUrlState(urlState = getUrlState()) {
     b.classList.toggle('active', b.dataset.toggle === state.pokédexMode);
   });
 
-  document.querySelectorAll('#view-community [data-community-filter]').forEach(b => {
-    b.classList.toggle('active', b.dataset.communityFilter === state.communityFilter);
-  });
   document.querySelectorAll('#view-community .gen-filter-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.communityGen === state.communityGenFilter);
   });
@@ -820,10 +854,15 @@ function isShinyCard(captures, community) {
 // Rangée « Variante » : ne garde que les captures de la variante choisie, de sorte
 // qu'un Pokémon attrapé seulement en shiny soit « non capturé » sous Normal. L'axe
 // ne porte que sur le shiny : une méga ou une forme non shiny compte comme normale.
-function filterByVariant(captures, variant) {
-  if (variant === 'shiny')  return captures.filter(c => c.is_shiny);
-  if (variant === 'normal') return captures.filter(c => !c.is_shiny);
-  return captures;
+const MEGA_ONLY_LABEL = 'Possédé en méga uniquement';
+
+// noMega est le second axe (« Sans méga ») : il écarte les mégas avant tout le reste,
+// de sorte qu'une espèce possédée seulement en méga redevienne « non capturée ».
+function filterByVariant(captures, variant, noMega = false) {
+  const base = noMega ? captures.filter(c => !c.is_mega) : captures;
+  if (variant === 'shiny')  return base.filter(c => c.is_shiny);
+  if (variant === 'normal') return base.filter(c => !c.is_shiny);
+  return base;
 }
 
 // Clés « id:slug », pour coller à ce que la grille affiche en mode Megadex.
@@ -1044,7 +1083,7 @@ function _renderProgressBars({ captures, mode, fillId, countId, panelId }) {
 
 function renderProgressBars() {
   _renderProgressBars({
-    captures: filterByVariant(state.captures, state.activeVariant),
+    captures: filterByVariant(state.captures, state.activeVariant, state.activeNoMega),
     mode:     state.pokédexMode,
     fillId:   'progress-fill',
     countId:  'progress-count',
@@ -1056,7 +1095,9 @@ function _renderPokeGrid({
   grid,
   searchQuery,
   activeFilter,
+  activeTier = 'all',
   variant = 'all',
+  noMega = false,
   visibleGenerations,
   getCaptureInfo,
   onProgressBars,
@@ -1130,7 +1171,7 @@ function _renderPokeGrid({
 
           if (activeFilter === 'captured' && !captured) continue;
           if (activeFilter === 'uncaptured' && captured) continue;
-          if (TIER_FILTER_KEYS.includes(activeFilter) && tier !== activeFilter) continue;
+          if (activeTier !== 'all' && tier !== activeTier) continue;
           // La recherche doit aussi matcher le nom de la forme ("méga-dracaufeu")
           const megaSearchTarget = `${name} ${megaForm.nom}`.toLowerCase();
           if (searchQuery && !megaSearchTarget.includes(searchQuery) && !String(id).includes(searchQuery)) continue;
@@ -1190,15 +1231,19 @@ function _renderPokeGrid({
         // Tout le monde passe un tableau ; la normalisation ne couvre que l'id absent.
         const capList  = Array.isArray(capInfo) ? capInfo : (capInfo ? [capInfo] : []);
         // Le clic garde capInfo entier : la modale reste la fiche de l'espèce.
-        const shown     = filterByVariant(capList, variant);
+        const shown     = filterByVariant(capList, variant, noMega);
         const captured  = shown.length > 0;
         const hasShiny  = isShinyCard(shown, community);
         const showShiny = hasShiny || variant === 'shiny';
         const date = shown[0]?.captured_at;
+        // Sous « Sans méga », distingue « jamais attrapé » de « il manque la version
+        // normale » : la variante choisie est possédée, mais seulement en méga.
+        const megaOnly = noMega && !captured
+          && filterByVariant(capList, variant).some(c => c.is_mega);
 
         if (activeFilter === 'captured' && !captured) continue;
         if (activeFilter === 'uncaptured' && captured) continue;
-        if (TIER_FILTER_KEYS.includes(activeFilter) && tier !== activeFilter) continue;
+        if (activeTier !== 'all' && tier !== activeTier) continue;
         if (searchQuery && !name.toLowerCase().includes(searchQuery) && !String(id).includes(searchQuery)) continue;
 
         const spriteUrl = showShiny ? `${SPRITE_SHINY}${id}.png` : `${SPRITE_BASE}${id}.png`;
@@ -1208,18 +1253,25 @@ function _renderPokeGrid({
         card.className = cardClasses;
         card.dataset.id = id;
         
+        const megaOnlyBadge = megaOnly
+          ? `<img class="poke-megaonly-badge" src="assets/images/key_stone.png" alt="" title="${MEGA_ONLY_LABEL}">`
+          : '';
+
         card.innerHTML = `
           <div class="poke-sprite-wrap">
             <img class="poke-sprite" src="${spriteUrl}" alt="${name}" loading="lazy">
+            ${megaOnlyBadge}
           </div>
           <div class="poke-number">#${String(id).padStart(3, '0')}</div>
           <div class="poke-name">${captured ? name : '???'}</div>
           ${captured ? `<div class="poke-date">${formatDate(date)}</div>` : ''}
         `;
+        if (megaOnly) card.classList.add('mega-only');
 
         card.tabIndex = 0;
         card.setAttribute('role', 'button');
-        card.setAttribute('aria-label', `Carte ${captured ? name : 'Pokémon inconnu'} ${TIER_LABELS[tier]}`);
+        card.setAttribute('aria-label', `Carte ${captured ? name : 'Pokémon inconnu'} ${TIER_LABELS[tier]}`
+          + (megaOnly ? ` — ${MEGA_ONLY_LABEL}` : ''));
         card.addEventListener('click', () => onCardClick(id, capInfo));
         card.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -1312,6 +1364,7 @@ function _renderFormGrid({
   grid,
   searchQuery,
   activeFilter,
+  activeTier = 'all',
   variant = 'all',
   getCapturesForForm,
   onProgressBars,
@@ -1349,7 +1402,7 @@ function _renderFormGrid({
 
       if (activeFilter === 'captured' && !captured) continue;
       if (activeFilter === 'uncaptured' && captured) continue;
-      if (TIER_FILTER_KEYS.includes(activeFilter) && tier !== activeFilter) continue;
+      if (activeTier !== 'all' && tier !== activeTier) continue;
       // « morphéo » comme « blizzard » doivent tomber sur la bonne carte
       const searchTarget = `${speciesName} ${form.nom}`.toLowerCase();
       if (searchQuery && !searchTarget.includes(searchQuery) && !String(species.id).includes(searchQuery)) continue;
@@ -1502,12 +1555,14 @@ function syncPokedexMode() {
 
   // Sinon un deep-link #pokedex?filter=rare&mode=unown laisse un filtre actif mais
   // invisible, et une grille vide sans explication.
-  if (isUnown && (state.activeFilter !== 'all' || state.searchQuery)) {
+  if (isUnown && (state.activeFilter !== 'all' || state.activeTier !== 'all' || state.searchQuery)) {
     resetPokedexFilters();
   }
   // La variante survit aux autres changements de mode, pas à celui-ci : elle
   // filtrerait la progression du Zarbidex depuis une rangée invisible.
   if (isUnown) setVariant('own', 'all');
+
+  syncNoMegaToggle('own', state.pokédexMode);
 }
 
 function renderGrid() {
@@ -1528,6 +1583,7 @@ function renderGrid() {
       grid: document.getElementById('pokedex-grid'),
       searchQuery: state.searchQuery,
       activeFilter: state.activeFilter,
+      activeTier: state.activeTier,
       variant: state.activeVariant,
       getCapturesForForm: (id, slug) => getFormCaptures(state.captures, id, slug),
       onProgressBars: renderProgressBars,
@@ -1541,7 +1597,9 @@ function renderGrid() {
     grid: document.getElementById('pokedex-grid'),
     searchQuery: state.searchQuery,
     activeFilter: state.activeFilter,
+    activeTier: state.activeTier,
     variant: state.activeVariant,
+    noMega: state.activeNoMega,
     visibleGenerations: getVisibleGenerations(),
     getCaptureInfo: (id) => capMap[id],
     onProgressBars: renderProgressBars,
@@ -2032,7 +2090,7 @@ function communityVariantKey(r) {
 
 function renderCommunityProgressBars() {
   _renderProgressBars({
-    captures: filterByVariant(state.communityCaptures, state.communityVariant),
+    captures: filterByVariant(state.communityCaptures, state.communityVariant, state.communityNoMega),
     mode:     state.communityMode,
     fillId:   'community-progress-fill',
     countId:  'community-progress-count',
@@ -2070,10 +2128,12 @@ function syncCommunityMode() {
   if (filters) filters.style.display = isUnown ? 'none' : '';
 
   // Sinon un deep-link laisse un filtre actif mais invisible.
-  if (isUnown && (state.communityFilter !== 'all' || state.communitySearch)) {
+  if (isUnown && (state.communityFilter !== 'all' || state.communityTier !== 'all' || state.communitySearch)) {
     resetCommunityFilters();
   }
   if (isUnown) setVariant('community', 'all');
+
+  syncNoMegaToggle('community', state.communityMode);
 }
 
 function renderCommunityGrid() {
@@ -2095,6 +2155,7 @@ function renderCommunityGrid() {
       grid: document.getElementById('community-grid'),
       searchQuery: state.communitySearch,
       activeFilter: state.communityFilter,
+      activeTier: state.communityTier,
       variant: state.communityVariant,
       getCapturesForForm: (id, slug) => getFormCaptures(state.communityCaptures, id, slug),
       onProgressBars: renderCommunityProgressBars,
@@ -2112,7 +2173,9 @@ function renderCommunityGrid() {
     grid: document.getElementById('community-grid'),
     searchQuery: state.communitySearch,
     activeFilter: state.communityFilter,
+    activeTier: state.communityTier,
     variant: state.communityVariant,
+    noMega: state.communityNoMega,
     visibleGenerations: visibleGens,
     // En Megadex, info est déjà la liste des mégas filtrée par _renderPokeGrid : la
     // repasser telle quelle est indispensable, le repli « sans colonne mega_form » de
@@ -2219,9 +2282,19 @@ function renderTopPokemonRows(entries, emptyLabel = 'Aucune donnée') {
 // visée, la clé de captures. Rien n'a été enregistré avant la migration : un Pokédex
 // complet peut n'afficher aucun lancer.
 
-// Master Ball absente : elle capture à coup sûr. D'où la somme explicite plutôt
-// que la colonne throws de la vue, qui l'inclut.
+// Master Ball lancée directement absente : elle capture à coup sûr. D'où la somme
+// explicite plutôt que la colonne throws de la vue, qui l'inclut.
 const THROW_BALL_KEYS = ['pokeball', 'superball', 'hyperball'];
+// + la Nikku Ball : tous ses lancers, quelle que soit la ball tirée, Master comprise
+// — on a bien lancé une Nikku Ball, et tomber sur la Master est tout son pari.
+const COUNTED_BALL_KEYS = [...THROW_BALL_KEYS, 'nikkuball'];
+
+// Seul calcul d'un nombre de lancers, pour les trois panneaux et la recherche.
+// throws_nikkuball est la colonne générée de la vue (somme des quatre nikku_*).
+function getBallThrowCount(row, ball = 'all') {
+  if (ball !== 'all') return Number(row[`throws_${ball}`]) || 0;
+  return COUNTED_BALL_KEYS.reduce((sum, key) => sum + (Number(row[`throws_${key}`]) || 0), 0);
+}
 
 // Le panneau personnel suit le compte connecté, jamais le Pokédex consulté.
 function getOwnLogin() {
@@ -2233,9 +2306,132 @@ function getTrainerDisplayName(login) {
   return (state.trainerNames && state.trainerNames[login]) || login;
 }
 
+/* ─── Recherche de dresseur (« Lancers de balls ») ─── */
+// Le panneau suit le compte connecté, sauf si un autre dresseur a été choisi.
+function getDisplayedThrowLogin() {
+  return state.throwTrainer || getOwnLogin();
+}
+
+const THROW_TRAINER_MAX_SUGGESTIONS = 8;
+// Mémorisé par référence de cache : recalculé seulement quand les lignes changent.
+let _throwTrainersFor = null;
+let _throwTrainers    = [];
+
+// Dresseurs ayant lancé au moins une ball comptée (Nikku comprise, Master Ball
+// directe exclue). Bots exclus, même convention que les panneaux de difficulté.
+function getThrowTrainers() {
+  if (!state.throwRowsCache) return [];
+  if (_throwTrainersFor === state.throwRowsCache) return _throwTrainers;
+
+  const logins = new Set();
+  for (const row of state.throwRowsCache) {
+    const login = String(row.user_login || '').toLowerCase();
+    if (!login || EXCLUDED_USER_NAMES.includes(login)) continue;
+    if (getBallThrowCount(row) > 0) logins.add(login);
+  }
+
+  _throwTrainersFor = state.throwRowsCache;
+  _throwTrainers    = [...logins];
+  return _throwTrainers;
+}
+
+// Pseudo et login, insensible à la casse. Ceux qui COMMENCENT par le texte d'abord,
+// puis ceux qui le contiennent ; alphabétique dans chaque groupe.
+function matchThrowTrainers(query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return [];
+
+  const starts = [];
+  const contains = [];
+  for (const login of getThrowTrainers()) {
+    const name = String(getTrainerDisplayName(login)).toLowerCase();
+    if (name.startsWith(q) || login.startsWith(q)) starts.push(login);
+    else if (name.includes(q) || login.includes(q)) contains.push(login);
+  }
+
+  const byName = (a, b) => getTrainerDisplayName(a).localeCompare(getTrainerDisplayName(b), 'fr', { sensitivity: 'base' });
+  return [...starts.sort(byName), ...contains.sort(byName)].slice(0, THROW_TRAINER_MAX_SUGGESTIONS);
+}
+
+// Index de l'option surlignée au clavier, -1 = aucune.
+let _throwTrainerActive = -1;
+
+function closeThrowTrainerList() {
+  const list  = document.getElementById('throw-trainer-list');
+  const input = document.getElementById('throw-trainer-search');
+  if (!list || !input) return;
+  list.hidden = true;
+  list.innerHTML = '';
+  _throwTrainerActive = -1;
+  input.setAttribute('aria-expanded', 'false');
+  input.removeAttribute('aria-activedescendant');
+}
+
+function renderThrowTrainerList() {
+  const list  = document.getElementById('throw-trainer-list');
+  const input = document.getElementById('throw-trainer-search');
+  if (!list || !input) return;
+
+  const query = input.value.trim();
+  if (!query) { closeThrowTrainerList(); return; }
+
+  const matches = matchThrowTrainers(query);
+  _throwTrainerActive = matches.length ? Math.min(Math.max(_throwTrainerActive, 0), matches.length - 1) : -1;
+
+  list.innerHTML = matches.length
+    ? matches.map((login, i) => {
+        const user = { name: getTrainerDisplayName(login), avatar: state.throwAvatars[login] || '' };
+        const active = i === _throwTrainerActive;
+        return `
+          <li class="throw-trainer-option${active ? ' active' : ''}" id="throw-trainer-opt-${i}"
+              role="option" aria-selected="${active}" data-login="${escapeHtml(login)}">
+            ${avatarMarkup(user, 'throw-trainer-avatar')}
+            <span class="throw-trainer-name">${escapeHtml(user.name)}</span>
+          </li>`;
+      }).join('')
+    : '<li class="throw-trainer-empty" role="presentation">Aucun dresseur trouvé</li>';
+
+  list.hidden = false;
+  input.setAttribute('aria-expanded', 'true');
+  if (_throwTrainerActive >= 0) input.setAttribute('aria-activedescendant', `throw-trainer-opt-${_throwTrainerActive}`);
+  else input.removeAttribute('aria-activedescendant');
+}
+
+// Seul point d'écriture du dresseur affiché. '' = revenir au compte connecté.
+function selectThrowTrainer(login) {
+  const clean = String(login || '').toLowerCase();
+  // Un login vient de la base, mais il finit dans un attribut : même règle qu'ailleurs.
+  state.throwTrainer = /^[a-z0-9_]{1,25}$/.test(clean) && clean !== getOwnLogin() ? clean : '';
+
+  const input = document.getElementById('throw-trainer-search');
+  if (input) input.value = state.throwTrainer ? getTrainerDisplayName(state.throwTrainer) : '';
+  closeThrowTrainerList();
+  renderThrowPanel();
+}
+
+function syncThrowTrainerHeader() {
+  const title = document.getElementById('sdash-throws-title');
+  const me    = document.getElementById('throw-trainer-me');
+  const other = !!state.throwTrainer;
+
+  if (title) title.textContent = other ? `Lancers de ${getTrainerDisplayName(state.throwTrainer)}` : 'Lancers de balls';
+  if (me) me.hidden = !(other && getOwnLogin());
+}
+
 function getThrowCount(row) {
-  if (state.throwBall !== 'all') return Number(row[`throws_${state.throwBall}`]) || 0;
-  return THROW_BALL_KEYS.reduce((sum, key) => sum + (Number(row[`throws_${key}`]) || 0), 0);
+  return getBallThrowCount(row, state.throwBall);
+}
+
+// Attrapé ⇔ captured_with posé. Un viewer ne peut pas relancer sur une variante déjà
+// capturée (remboursé, rien d'enregistré) : une ligne sans captured_with est un échec.
+function isThrowCaught(row) {
+  return !!row.captured_with;
+}
+
+function matchesThrowResult(row) {
+  if (state.throwResult === 'caught') return isThrowCaught(row);
+  if (state.throwResult === 'missed') return !isThrowCaught(row);
+  return true;
 }
 
 // Génération et rareté, indépendantes et combinables. Bornes tirées de GENERATIONS.
@@ -2248,7 +2444,8 @@ function matchesThrowFilters(id) {
 }
 
 function hasActiveThrowFilters() {
-  return state.throwGen !== 'all' || state.throwTier !== 'all' || state.throwBall !== 'all';
+  return state.throwGen !== 'all' || state.throwTier !== 'all'
+    || state.throwBall !== 'all' || state.throwResult !== 'all';
 }
 
 // Une méga ou une forme hors registre garde le nom de son espèce, plutôt qu'un slug brut.
@@ -2293,6 +2490,8 @@ function getThrowSpriteUrl(row) {
   return `${shiny ? SPRITE_SHINY : SPRITE_BASE}${id}.png`;
 }
 
+const THROW_MISSED_LABEL = 'Pas encore attrapé';
+
 // Calqué sur renderTopPokemonRows() mais pas partagé : la clé est ici une variante.
 function renderThrowRows(entries) {
   const maxCount = entries[0][1] || 1;
@@ -2305,12 +2504,18 @@ function renderThrowRows(entries) {
     const megaAttr = row.mega_form
       ? ` data-mega-slug="${escapeHtml(row.mega_form)}" data-mega-id="${id}" data-mega-shiny="${row.is_shiny ? '1' : '0'}"`
       : '';
+    // Attrapé : la ball qui a conclu (logo N si tirée par une Nikku). Échec : silhouette + ✗.
+    const caught = isThrowCaught(row);
+    const result = caught
+      ? renderBallTag(row.captured_with, row.captured_with_nikku === true)
+      : `<span class="sdash-throw-missed" title="${THROW_MISSED_LABEL}" aria-label="${THROW_MISSED_LABEL}">✗</span>`;
 
     return `
-      <div class="sdash-top-row">
+      <div class="sdash-top-row${caught ? '' : ' is-missed'}">
         <span class="sdash-top-rank">#${i + 1}</span>
         <img class="sdash-top-sprite${row.is_shiny ? ' is-shiny' : ''}" src="${getThrowSpriteUrl(row)}" alt="${escapeHtml(label)}" loading="lazy"${megaAttr}>
         <span class="sdash-top-name tier-${tier}">${escapeHtml(label)}</span>
+        <span class="sdash-throw-result">${result}</span>
         <div class="sdash-bar-track sdash-bar-inline">
           <div class="sdash-bar-fill tier-bg-${tier}" style="width:${barPct}%;opacity:.27"></div>
         </div>
@@ -2339,13 +2544,18 @@ function renderThrowPanel() {
   document.querySelectorAll('[data-throw-ball]').forEach(b =>
     b.classList.toggle('active', b.dataset.throwBall === state.throwBall)
   );
+  document.querySelectorAll('[data-throw-result]').forEach(b =>
+    b.classList.toggle('active', b.dataset.throwResult === state.throwResult)
+  );
+
+  syncThrowTrainerHeader();
 
   const el = document.getElementById('sdash-my-throws');
   if (!el || !state.throwRowsCache) return;
 
-  const login = getOwnLogin();
+  const login = getDisplayedThrowLogin();
   if (!login) {
-    showLoadError(el, 'Connecte-toi pour voir tes lancers.');
+    showLoadError(el, 'Connecte-toi ou cherche un dresseur.');
     return;
   }
 
@@ -2355,6 +2565,7 @@ function renderThrowPanel() {
     .filter(row => row.user_login === login)
     // La vue accepte 1..1025, la grille s'arrête à POKEDEX_TOTAL.
     .filter(row => isInPokedex(row.pokemon_id) && matchesThrowFilters(Number(row.pokemon_id)))
+    .filter(matchesThrowResult)
     .map(row => [row, getThrowCount(row)])
     // Sans ce filtre, « Hyper Ball » remplirait le panneau de zéros.
     .filter(([, count]) => count > 0)
@@ -2364,7 +2575,8 @@ function renderThrowPanel() {
 
   // Vide à cause des filtres et vide faute de données : deux messages distincts.
   if (!entries.length) {
-    const empty = hasActiveThrowFilters() ? 'Aucun lancer pour ces filtres' : 'Aucun lancer enregistré';
+    const who   = state.throwTrainer ? ` pour ${getTrainerDisplayName(state.throwTrainer)}` : '';
+    const empty = hasActiveThrowFilters() ? 'Aucun lancer pour ces filtres' : `Aucun lancer enregistré${who}`;
     el.innerHTML = `<div class="stats-empty">${escapeHtml(empty)}</div>`;
     return;
   }
@@ -2396,7 +2608,10 @@ function getDiffRows() {
   if (!state.throwRowsCache) return [];
 
   return state.throwRowsCache.filter(row => {
-    if (!row.captured_with || row.captured_with === 'masterball') return false;
+    if (!row.captured_with) return false;
+    // Seule la Master Ball LANCÉE DIRECTEMENT est écartée. Une Nikku qui a tiré la
+    // Master reste : c'est le pari de la Nikku, l'écarter fausserait sa moyenne.
+    if (row.captured_with === 'masterball' && !row.captured_with_nikku) return false;
     // captured_with et throws_to_capture se posent ensemble en base.
     if (!(Number(row.throws_to_capture) >= 1)) return false;
     // Bots exclus. Ici le login est disponible tel quel, c'est bien ce que contient la liste.
@@ -2410,8 +2625,7 @@ function getDiffRows() {
 // Décomposition additive : les trois moyennes par ball s'additionnent pour redonner
 // celle de « Toutes ». Master Ball hors de la somme, comme partout.
 function getDiffThrowCount(row) {
-  if (state.diffBall !== 'all') return Number(row[`throws_${state.diffBall}`]) || 0;
-  return THROW_BALL_KEYS.reduce((sum, key) => sum + (Number(row[`throws_${key}`]) || 0), 0);
+  return getBallThrowCount(row, state.diffBall);
 }
 
 /* Virgule décimale : « 7,3 » à la française, comme le reste du site. */
@@ -2428,6 +2642,7 @@ const DIFF_BALL_LABELS = {
   pokeball:  'Poké Balls',
   superball: 'Super Balls',
   hyperball: 'Hyper Balls',
+  nikkuball: 'Nikku Balls',
 };
 
 function diffThrowNoun() {
@@ -2546,12 +2761,11 @@ function renderDifficultyPanels() {
 
 // Demandés une fois pour toute la table, jamais à chaque clic de filtre. Les logins
 // sans réponse sont mémorisés à '' pour ne pas relancer la requête à chaque rendu.
+// Tous les dresseurs ayant lancé, pas seulement ceux qui ont capturé : la recherche
+// de « Lancers de balls » les propose avec leur avatar. C'est un sur-ensemble des
+// dresseurs du classement de difficulté.
 async function loadThrowerAvatars() {
-  const logins = [...new Set(
-    (state.throwRowsCache || [])
-      .filter(row => row.captured_with && !EXCLUDED_USER_NAMES.includes(row.user_login))
-      .map(row => String(row.user_login || '').toLowerCase())
-  )].filter(login => login && !(login in state.throwAvatars));
+  const logins = getThrowTrainers().filter(login => !(login in state.throwAvatars));
 
   if (!logins.length) return;
 
@@ -2559,6 +2773,8 @@ async function loadThrowerAvatars() {
   for (const login of logins) state.throwAvatars[login] = avatars[login] || '';
 
   renderTopThrowersPanel();
+  const list = document.getElementById('throw-trainer-list');
+  if (list && !list.hidden) renderThrowTrainerList();
 }
 
 /* ─── Chargement des lancers ───────────────────── */
@@ -2574,7 +2790,7 @@ async function ensureThrowRows(forceRefresh = false) {
     // n'a pas → 400. Ordre total, login compris, sinon des lignes se perdent entre deux pages.
     `${CONFIG.supabase.url}/rest/v1/user_pokemon_throw_counts`
       + `?select=user_login,pokemon_id,is_shiny,mega_form,form`
-      + `,throws_pokeball,throws_superball,throws_hyperball`
+      + `,throws_pokeball,throws_superball,throws_hyperball,throws_nikkuball`
       + `,throws_to_capture,captured_with,captured_with_nikku`
       + `&order=user_login.asc,pokemon_id.asc,is_shiny.asc`
       + `,mega_form.asc.nullsfirst,form.asc.nullsfirst`,
@@ -2883,9 +3099,10 @@ function resetStatsFilterGroup(group) {
 
   if (group === 'throws') {
     if (!hasActiveThrowFilters()) return false;
-    state.throwGen  = 'all';
-    state.throwTier = 'all';
-    state.throwBall = 'all';
+    state.throwGen    = 'all';
+    state.throwTier   = 'all';
+    state.throwBall   = 'all';
+    state.throwResult = 'all';
     renderThrowPanel();
     return true;
   }
@@ -3255,10 +3472,68 @@ document.getElementById('btn-logout').addEventListener('click', () => {
   state.captures    = [];
   state.ownCaptures = [];
   state.adminViewingUser = null;
+  selectThrowTrainer('');
 
   document.getElementById('page-pokedex').style.display = 'none';
   document.getElementById('page-landing').style.display = 'flex';
 });
+
+// ─── Recherche de dresseur (« Lancers de balls ») ───
+// Posés une seule fois. Sélection au mousedown : au click, le blur du champ aurait
+// déjà fermé la liste.
+(() => {
+  const input = document.getElementById('throw-trainer-search');
+  const list  = document.getElementById('throw-trainer-list');
+  const me    = document.getElementById('throw-trainer-me');
+  if (!input || !list) return;
+
+  input.addEventListener('input', () => {
+    _throwTrainerActive = 0;
+    renderThrowTrainerList();
+  });
+
+  input.addEventListener('keydown', (e) => {
+    const options = list.querySelectorAll('.throw-trainer-option');
+
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (list.hidden) { renderThrowTrainerList(); return; }
+      if (!options.length) return;
+      e.preventDefault();
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      _throwTrainerActive = (_throwTrainerActive + step + options.length) % options.length;
+      renderThrowTrainerList();
+      return;
+    }
+    if (e.key === 'Enter') {
+      const opt = options[_throwTrainerActive];
+      if (opt) { e.preventDefault(); selectThrowTrainer(opt.dataset.login); }
+      return;
+    }
+    if (e.key === 'Escape') {
+      // Échap ferme la liste et remet le champ sur le dresseur affiché.
+      input.value = state.throwTrainer ? getTrainerDisplayName(state.throwTrainer) : '';
+      closeThrowTrainerList();
+    }
+  });
+
+  list.addEventListener('mousedown', (e) => {
+    const opt = e.target.closest('.throw-trainer-option');
+    if (!opt) return;
+    e.preventDefault();
+    selectThrowTrainer(opt.dataset.login);
+  });
+
+  // Un texte tapé puis abandonné ne doit pas faire croire qu'un autre dresseur est affiché.
+  input.addEventListener('blur', () => {
+    input.value = state.throwTrainer ? getTrainerDisplayName(state.throwTrainer) : '';
+    closeThrowTrainerList();
+  });
+
+  // Champ prérempli par le pseudo choisi : tout sélectionner, pour taper par-dessus.
+  input.addEventListener('focus', () => input.select());
+
+  me?.addEventListener('click', () => selectThrowTrainer(''));
+})();
 
 // Le nonce est créé au clic, surtout pas au chargement : sinon le retour de Twitch
 // recharge la page, régénère un nonce, et plus personne ne peut se connecter.
@@ -3267,44 +3542,96 @@ document.getElementById('btn-login').addEventListener('click', (e) => {
   window.location.href = getTwitchLoginUrl();
 });
 
-// [data-filter] et non .filter-btn : la rangée « Variante » porte la même classe,
-// et un clic sur une rareté ne doit pas éteindre son bouton actif.
-document.querySelectorAll('#view-pokedex [data-filter]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#view-pokedex [data-filter]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    state.activeFilter = btn.dataset.filter;
-    updateUrlState();
-    renderGrid();
-  });
-});
-
-// ─── Rangée « Variante » ──────────────────────
-// Seul point d'écriture de la variante : l'état et les classes active ne peuvent
-// pas diverger, quel que soit le chemin (clic, deep-link, garde du Zarbidex).
-function setVariant(scope, value) {
-  const { key, attr, dataset } = VARIANT_SCOPES[scope];
-  state[key] = pickAllowed(value, VALID_VARIANTS, 'all');
+// ─── Rangées de filtres du Pokédex et de la Communauté ───
+// Quatre axes indépendants, chacun avec son seul point d'écriture : l'état et les
+// classes active ne peuvent pas diverger, quel que soit le chemin (clic, deep-link,
+// garde d'un mode, changement de dresseur). Sélecteurs par data-*, jamais .filter-btn :
+// la classe est partagée par toutes les rangées.
+function syncScopeButtons(attr, dataset, value) {
   document.querySelectorAll(`[data-${attr}]`).forEach(b => {
-    b.classList.toggle('active', b.dataset[dataset] === state[key]);
+    b.classList.toggle('active', b.dataset[dataset] === value);
   });
 }
 
-document.querySelectorAll('[data-variant]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    setVariant('own', btn.dataset.variant);
-    updateUrlState();
-    renderGrid();
-  });
-});
+// Statut : Tous / Capturés / Non capturés.
+function setStatusFilter(scope, value) {
+  const { key, attr, dataset } = FILTER_SCOPES[scope];
+  state[key] = pickAllowed(value, VALID_FILTERS, 'all');
+  syncScopeButtons(attr, dataset, state[key]);
+}
 
-document.querySelectorAll('[data-community-variant]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    setVariant('community', btn.dataset.communityVariant);
-    updateUrlState();
-    renderCommunityGrid();
+// Rareté, combinable avec le statut. Aucun bouton « toutes » : recliquer la rareté
+// active la désactive (cf. le listener).
+function setTierFilter(scope, value) {
+  const { key, attr, dataset } = TIER_SCOPES[scope];
+  state[key] = pickAllowed(value, VALID_TIERS, 'all');
+  syncScopeButtons(attr, dataset, state[key]);
+}
+
+// Variante : Toutes / Normal / Shiny.
+function setVariant(scope, value) {
+  const { key, attr, dataset } = VARIANT_SCOPES[scope];
+  state[key] = pickAllowed(value, VALID_VARIANTS, 'all');
+  syncScopeButtons(attr, dataset, state[key]);
+}
+
+// « Sans méga », interrupteur indépendant de la variante.
+function setNoMega(scope, value) {
+  const { key, attr } = NO_MEGA_SCOPES[scope];
+  state[key] = value === true;
+  document.querySelectorAll(`[data-${attr}]`).forEach(b => {
+    b.classList.toggle('active', state[key]);
+    b.setAttribute('aria-pressed', state[key] ? 'true' : 'false');
   });
-});
+}
+
+// La bascule n'a de sens qu'au Pokédex : le Megadex ne contient que des mégas, le
+// Formdex aucune. Masquée ailleurs, et éteinte, sinon elle filtrerait la progression
+// depuis un bouton invisible.
+function syncNoMegaToggle(scope, mode) {
+  const { attr } = NO_MEGA_SCOPES[scope];
+  const visible = mode === 'normal';
+  document.querySelectorAll(`[data-${attr}], [data-${attr}-sep]`).forEach(el => { el.hidden = !visible; });
+  // updateUrlState() ici : les boutons de mode écrivent l'URL avant de rendre, elle
+  // garderait sinon un nomega=1 que la garde vient d'éteindre.
+  if (!visible && state[NO_MEGA_SCOPES[scope].key]) {
+    setNoMega(scope, false);
+    updateUrlState();
+  }
+}
+
+const SCOPE_RENDERERS = {
+  own:       () => renderGrid(),
+  community: () => renderCommunityGrid(),
+};
+
+function bindFilterRows(scope) {
+  const rerender = () => { updateUrlState(); SCOPE_RENDERERS[scope](); };
+  const f = FILTER_SCOPES[scope];
+  const t = TIER_SCOPES[scope];
+  const v = VARIANT_SCOPES[scope];
+  const n = NO_MEGA_SCOPES[scope];
+
+  document.querySelectorAll(`[data-${f.attr}]`).forEach(btn => {
+    btn.addEventListener('click', () => { setStatusFilter(scope, btn.dataset[f.dataset]); rerender(); });
+  });
+  document.querySelectorAll(`[data-${t.attr}]`).forEach(btn => {
+    btn.addEventListener('click', () => {
+      const value = btn.dataset[t.dataset];
+      setTierFilter(scope, state[t.key] === value ? 'all' : value);
+      rerender();
+    });
+  });
+  document.querySelectorAll(`[data-${v.attr}]`).forEach(btn => {
+    btn.addEventListener('click', () => { setVariant(scope, btn.dataset[v.dataset]); rerender(); });
+  });
+  document.querySelectorAll(`[data-${n.attr}]`).forEach(btn => {
+    btn.addEventListener('click', () => { setNoMega(scope, !state[n.key]); rerender(); });
+  });
+}
+
+bindFilterRows('own');
+bindFilterRows('community');
 
 document.querySelectorAll('#view-pokedex .gen-filter-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -3380,16 +3707,7 @@ document.querySelectorAll('#view-rank [data-first-gen]').forEach(btn => {
 });
 
 // ─── Filtres communauté ───────────────────────
-document.querySelectorAll('#view-community [data-community-filter]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#view-community [data-community-filter]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    state.communityFilter = btn.dataset.communityFilter;
-    updateUrlState();
-    renderCommunityGrid();
-  });
-});
-
+// Statut, rareté, variante et « Sans méga » : cf. bindFilterRows().
 document.querySelectorAll('#view-community .gen-filter-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('#view-community .gen-filter-btn').forEach(b => b.classList.remove('active'));
@@ -3409,16 +3727,10 @@ document.getElementById('community-filter-search').addEventListener('input', e =
 // Jumeau de resetPokedexFilters() pour la Communauté : changer d'onglet repart de
 // filtres propres, les modes n'ont ni les mêmes raretés ni les mêmes noms.
 function resetCommunityFilters() {
-  state.communityFilter = 'all';
+  setStatusFilter('community', 'all');
+  setTierFilter('community', 'all');
   state.communityGenFilter = 'all';
   state.communitySearch = '';
-
-  document.querySelectorAll('#view-community [data-community-filter]').forEach(b =>
-    b.classList.remove('active')
-  );
-  document
-    .querySelector('#view-community [data-community-filter="all"]')
-    .classList.add('active');
 
   document.querySelectorAll('#view-community .gen-filter-btn').forEach(b =>
     b.classList.remove('active')
@@ -3486,6 +3798,13 @@ document.querySelectorAll('[data-throw-ball]').forEach(btn => {
   });
 });
 
+document.querySelectorAll('[data-throw-result]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.throwResult = btn.dataset.throwResult;
+    renderThrowPanel();
+  });
+});
+
 // Filtres partagés par les deux panneaux de difficulté : ils agrègent le même
 // sous-ensemble sous deux angles.
 document.querySelectorAll('[data-diff-gen]').forEach(btn => {
@@ -3526,16 +3845,10 @@ document.querySelectorAll('[data-spawn-tier]').forEach(btn => {
 
 // ─── Onglets du Pokédex perso ─────────────────
 function resetPokedexFilters() {
-  state.activeFilter = 'all';
+  setStatusFilter('own', 'all');
+  setTierFilter('own', 'all');
   state.activeGenFilter = 'all';
   state.searchQuery = '';
-
-  document.querySelectorAll('#view-pokedex [data-filter]').forEach(b =>
-    b.classList.remove('active')
-  );
-  document
-    .querySelector('#view-pokedex [data-filter="all"]')
-    .classList.add('active');
 
   document.querySelectorAll('#view-pokedex .gen-filter-btn').forEach(b =>
     b.classList.remove('active')
@@ -3548,10 +3861,12 @@ function resetPokedexFilters() {
 }
 
 // Bascule sur la vue Pokédex avec des filtres propres.
-// La variante, qui survit aux changements d'onglet, repart à zéro avec le dresseur.
+// La variante et « Sans méga », qui survivent aux changements d'onglet, repartent
+// à zéro avec le dresseur.
 function showPokedexView({ showBackButton }) {
   resetPokedexFilters();
   setVariant('own', 'all');
+  setNoMega('own', false);
   switchToPage('pokedex');
   document.getElementById('back-to-me-btn').style.display = showBackButton ? '' : 'none';
   updateUrlState();

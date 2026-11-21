@@ -487,6 +487,22 @@ body::before {
 .filter-btn.f-fabuleux.active   { border-color: var(--fabuleux);  color: var(--fabuleux);  background: rgba(250,115,255,0.06); }
 .filter-btn.f-legendaire.active { border-color: var(--legendaire); color: var(--legendaire); background: rgba(240,208,80,0.06); }
 .filter-btn.f-shiny.active      { border-color: var(--shiny);      color: var(--shiny);      background: rgba(0,229,255,0.06); box-shadow: 0 0 10px rgba(0,229,255,0.15); }
+/* « Sans méga » : violet des mégas (cf. .mega-card). */
+.filter-btn.f-nomega { display: inline-flex; align-items: center; gap: 5px; }
+.filter-btn.f-nomega[hidden] { display: none; }
+.filter-btn.f-nomega.active     { border-color: #a050ff;           color: #c08cff;           background: rgba(160,80,255,0.08); box-shadow: 0 0 10px rgba(160,80,255,0.18); }
+.f-nomega-icon { width: 13px; height: 13px; object-fit: contain; }
+
+/* Filet entre deux axes d'une même rangée (statut | rareté, variante | Sans méga). */
+.filter-sep {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  background: rgba(255,255,255,0.1);
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+.filter-sep[hidden] { display: none; }
 
 .filter-search {
   margin-left: auto;
@@ -612,6 +628,20 @@ body::before {
   filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
 }
 .poke-card:hover .poke-sprite { transform: scale(1.08); }
+
+/* « Sans méga » : espèce possédée, mais seulement en méga. Pleine opacité sur la
+   silhouette, c'est elle qui la distingue d'un Pokémon jamais attrapé. */
+.poke-megaonly-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 4px rgba(160,80,255,0.7));
+  pointer-events: none;
+}
+.poke-card.mega-only { border-color: rgba(160,80,255,0.28); }
 
 
 .poke-number {
@@ -1603,6 +1633,90 @@ hyphens: auto;
 
 .sdash-panel-header .sdash-panel-title { margin-bottom: 0; }
 
+/* ── Recherche de dresseur (« Lancers de balls ») ── */
+.throw-trainer-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.throw-trainer-search {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text);
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.throw-trainer-search:focus { border-color: var(--gold-dim); box-shadow: 0 0 0 3px rgba(240,208,80,0.06); }
+.throw-trainer-search::placeholder { color: var(--muted); }
+.throw-trainer-me {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--gold);
+  font-size: 11px;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: background .2s;
+}
+.throw-trainer-me:hover { background: rgba(240,208,80,0.08); }
+.throw-trainer-me[hidden] { display: none; }
+
+.throw-trainer-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  max-height: 320px;
+  overflow-y: auto;
+}
+.throw-trainer-list[hidden] { display: none; }
+.throw-trainer-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+}
+.throw-trainer-option:hover,
+.throw-trainer-option.active { background: rgba(240,208,80,0.08); color: var(--gold); }
+.throw-trainer-avatar {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  object-fit: cover;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--bg2);
+  color: var(--gold);
+}
+.throw-trainer-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.throw-trainer-empty { padding: 8px 10px; font-size: 12px; color: var(--muted); font-style: italic; }
+
 .sdash-gen-tabs {
   display: flex;
   gap: 4px;
@@ -1675,6 +1789,20 @@ hyphens: auto;
 .sdash-gen-tab.b-pokeball.active  { color: #ff5350; background: rgba(255,83,80,0.12); }
 .sdash-gen-tab.b-superball.active { color: #4aa3ff; background: rgba(74,163,255,0.12); }
 .sdash-gen-tab.b-hyperball.active { color: #f0c419; background: rgba(240,196,25,0.12); }
+.sdash-gen-tab.b-nikkuball.active { color: #ff6fb5; background: rgba(255,111,181,0.12); }
+
+/* « Lancers de balls » : ball qui a conclu la capture, ou ✗ pour un échec. */
+.sdash-throw-result {
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1;
+}
+.sdash-throw-missed { color: #ff6b6b; font-weight: 700; }
+/* Échec : silhouette, comme une carte non capturée du Pokédex. */
+.sdash-top-row.is-missed .sdash-top-sprite { filter: brightness(0) opacity(0.35); }
+.sdash-top-row.is-missed .sdash-top-name { opacity: 0.6; }
 
 .sdash-rarity-list {
   display: flex;
